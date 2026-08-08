@@ -29,71 +29,25 @@
                 <Setter Property="Padding" Value="12,6" />
             </Style>
 
-            <Style x:Key="PaneTitleStyle" TargetType="TextBlock">
-                <Setter Property="FontSize" Value="12" />
-                <Setter Property="FontWeight" Value="SemiBold" />
+            <!-- 文字まわりは WinUI 標準の text style を継承し、必要な差分だけを足す -->
+            <Style x:Key="PaneTitleStyle" TargetType="TextBlock"
+                   BasedOn="{StaticResource CaptionTextBlockStyle}">
                 <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
             </Style>
 
-            <!-- 既定より詰めたコントロール。操作が多い画面なので高さを抑える -->
-            <Style TargetType="Button">
-                <Setter Property="MinWidth" Value="0" />
-                <Setter Property="MinHeight" Value="28" />
-                <Setter Property="Padding" Value="10,2,10,3" />
-                <Setter Property="FontSize" Value="13" />
+            <Style x:Key="SectionHeadingStyle" TargetType="TextBlock"
+                   BasedOn="{StaticResource BodyStrongTextBlockStyle}">
+                <Setter Property="Margin" Value="0,8,0,0" />
             </Style>
 
-            <Style TargetType="ToggleButton">
-                <Setter Property="MinWidth" Value="0" />
-                <Setter Property="MinHeight" Value="28" />
-                <Setter Property="Padding" Value="10,2,10,3" />
-                <Setter Property="FontSize" Value="13" />
-            </Style>
-
-            <Style TargetType="TextBox">
-                <Setter Property="MinHeight" Value="28" />
-            </Style>
-
-            <Style TargetType="ComboBox">
-                <Setter Property="MinHeight" Value="28" />
-            </Style>
-
-            <Style x:Key="SlimAccentButtonStyle" TargetType="Button"
-                   BasedOn="{StaticResource AccentButtonStyle}">
-                <Setter Property="MinWidth" Value="0" />
-                <Setter Property="MinHeight" Value="28" />
-                <Setter Property="Padding" Value="10,2,10,3" />
-                <Setter Property="FontSize" Value="13" />
-            </Style>
-
-            <!-- 一覧行の電源トグル (アイコンのみ) -->
-            <Style x:Key="RowToggleStyle" TargetType="ToggleButton">
-                <Setter Property="MinWidth" Value="0" />
-                <Setter Property="MinHeight" Value="0" />
-                <Setter Property="Width" Value="32" />
-                <Setter Property="Height" Value="26" />
-                <Setter Property="Padding" Value="0" />
-                <Setter Property="FontSize" Value="13" />
-                <Setter Property="HorizontalContentAlignment" Value="Center" />
-                <Setter Property="VerticalContentAlignment" Value="Center" />
-            </Style>
-
-            <!-- 詳細ペインの節見出しと、項目名 / 値のラベル -->
-            <Style x:Key="SectionHeadingStyle" TargetType="TextBlock">
-                <Setter Property="FontSize" Value="12" />
-                <Setter Property="FontWeight" Value="SemiBold" />
-                <Setter Property="Margin" Value="0,6,0,0" />
-                <Setter Property="Foreground" Value="{ThemeResource AccentTextFillColorPrimaryBrush}" />
-            </Style>
-
-            <Style x:Key="FieldLabelStyle" TargetType="TextBlock">
-                <Setter Property="FontSize" Value="12" />
+            <Style x:Key="FieldLabelStyle" TargetType="TextBlock"
+                   BasedOn="{StaticResource BodyTextBlockStyle}">
                 <Setter Property="VerticalAlignment" Value="Center" />
                 <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
             </Style>
 
-            <Style x:Key="FieldValueStyle" TargetType="TextBlock">
-                <Setter Property="TextWrapping" Value="Wrap" />
+            <Style x:Key="FieldValueStyle" TargetType="TextBlock"
+                   BasedOn="{StaticResource BodyTextBlockStyle}">
                 <Setter Property="VerticalAlignment" Value="Center" />
                 <Setter Property="IsTextSelectionEnabled" Value="True" />
             </Style>
@@ -108,13 +62,14 @@
                     <Ellipse Width="10" Height="10" VerticalAlignment="Center"
                              Fill="{Binding Status, Converter={StaticResource StatusBrush}}" />
                     <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1">
-                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
-                                   TextTrimming="CharacterEllipsis" />
-                        <TextBlock Text="{Binding Summary}" FontSize="12" Opacity="0.7"
-                                   TextTrimming="CharacterEllipsis" />
+                        <!-- 行は 2 行固定なので、折り返さず中央省略する -->
+                        <TextBlock Text="{Binding Name}" Style="{StaticResource BodyStrongTextBlockStyle}"
+                                   TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{Binding Summary}" Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
                     </StackPanel>
                     <ToggleButton Grid.Column="2" VerticalAlignment="Center"
-                                  Style="{StaticResource RowToggleStyle}"
                                   Content="&#x23FB;"
                                   IsChecked="{Binding IsConnected, Mode=OneWay}"
                                   Command="{Binding ToggleConnectionCommand}" />
@@ -124,7 +79,7 @@
             <DataTemplate x:Key="DetailTemplate">
                 <ScrollViewer>
                     <StackPanel Spacing="8">
-                        <TextBlock Text="{Binding Name}" FontSize="22" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding Name}" Style="{StaticResource SubtitleTextBlockStyle}" />
 
                         <TextBlock Text="接続内容" Style="{StaticResource SectionHeadingStyle}" />
                         <Grid ColumnSpacing="12" RowSpacing="6">
@@ -160,7 +115,7 @@
                             <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Spacing="8">
                                 <TextBlock Text="{Binding LocalPortText}" FontFamily="Consolas"
                                            VerticalAlignment="Center" IsTextSelectionEnabled="True" />
-                                <Button Content="コピー" Padding="8,1,8,2" FontSize="12"
+                                <Button Content="コピー"
                                         Command="{Binding CopyLocalEndpointCommand}"
                                         Visibility="{Binding LocalEndpoint, Converter={StaticResource NullToVis}}" />
                             </StackPanel>
@@ -218,7 +173,7 @@
                         <TextBlock Text="セッションログ" Style="{StaticResource SectionHeadingStyle}"
                                    Visibility="{Binding HasLog, Converter={StaticResource BoolToVis}}" />
                         <ListView ItemsSource="{Binding LogLines}" MaxHeight="180"
-                                  FontSize="11" SelectionMode="None"
+                                  SelectionMode="None"
                                   Visibility="{Binding HasLog, Converter={StaticResource BoolToVis}}">
                             <ListView.ItemContainerStyle>
                                 <Style TargetType="ListViewItem">
@@ -325,7 +280,7 @@
                                    Visibility="{Binding ValidationError, Converter={StaticResource NullToVis}}" />
 
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <Button Content="保存" Style="{StaticResource SlimAccentButtonStyle}"
+                            <Button Content="保存" Style="{StaticResource AccentButtonStyle}"
                                     Command="{Binding SaveCommand}" />
                             <Button Content="キャンセル" Command="{Binding CancelCommand}" />
                         </StackPanel>
@@ -350,7 +305,8 @@
             <TextBox x:Name="FilterBox" PlaceholderText="設定名でフィルタ" Width="220"
                      TextChanged="OnFilterChanged" />
             <TextBlock x:Name="DemoBadge" Text="デモモード" VerticalAlignment="Center"
-                       Foreground="DarkOrange" FontWeight="SemiBold" Visibility="Collapsed" />
+                       Style="{StaticResource BodyStrongTextBlockStyle}"
+                       Foreground="DarkOrange" Visibility="Collapsed" />
         </StackPanel>
 
         <Grid Grid.Row="1" ColumnSpacing="12">
@@ -397,10 +353,11 @@
                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6"
                                     Visibility="{Binding DetailContent, Converter={StaticResource NullToVis}, ConverterParameter=Invert}">
                             <TextBlock Text="設定を選択してください" HorizontalAlignment="Center"
+                                       Style="{StaticResource BodyTextBlockStyle}"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                             <TextBlock Text="左の一覧から選ぶと、解決結果・接続状態・ログをここに表示します"
-                                       HorizontalAlignment="Center" FontSize="12" TextWrapping="Wrap"
-                                       TextAlignment="Center" MaxWidth="320"
+                                       HorizontalAlignment="Center" TextAlignment="Center" MaxWidth="320"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
                                        Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
                         </StackPanel>
                     </Grid>
@@ -421,17 +378,20 @@
 
                 <Ellipse Width="8" Height="8" VerticalAlignment="Center"
                          Fill="{Binding StatusSeverity, Converter={StaticResource ActivityBrush}}" />
-                <TextBlock Grid.Column="1" VerticalAlignment="Center" FontSize="12"
-                           Text="{Binding StatusText}" TextTrimming="CharacterEllipsis" />
-                <TextBlock Grid.Column="2" VerticalAlignment="Center" FontSize="12" Opacity="0.6"
+                <TextBlock Grid.Column="1" VerticalAlignment="Center"
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Text="{Binding StatusText}"
+                           TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="2" VerticalAlignment="Center"
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                            Text="{Binding StatusTime}" />
 
-                <Button Grid.Column="3" Content="ログ" Padding="10,1,10,2" FontSize="12"
-                        MinHeight="24">
+                <Button Grid.Column="3" Content="ログ">
                     <Button.Flyout>
                         <Flyout>
                             <StackPanel x:Name="ActivityPanel" Width="560" Spacing="8">
-                                <TextBlock Text="最近の動作" FontWeight="SemiBold" />
+                                <TextBlock Text="最近の動作" Style="{StaticResource BodyStrongTextBlockStyle}" />
                                 <ListView ItemsSource="{Binding Activities}" MaxHeight="360"
                                           SelectionMode="None">
                                     <ListView.ItemContainerStyle>
@@ -450,17 +410,20 @@
                                                 </Grid.ColumnDefinitions>
                                                 <Ellipse Width="7" Height="7" VerticalAlignment="Center"
                                                          Fill="{Binding Severity, Converter={StaticResource ActivityBrush}}" />
-                                                <TextBlock Grid.Column="1" Text="{Binding Time}" FontSize="11"
-                                                           Opacity="0.6" VerticalAlignment="Center"
-                                                           FontFamily="Consolas" />
-                                                <TextBlock Grid.Column="2" Text="{Binding Message}" FontSize="12"
+                                                <TextBlock Grid.Column="1" Text="{Binding Time}"
+                                                           Style="{StaticResource CaptionTextBlockStyle}"
+                                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                           VerticalAlignment="Center" FontFamily="Consolas" />
+                                                <TextBlock Grid.Column="2" Text="{Binding Message}"
+                                                           Style="{StaticResource CaptionTextBlockStyle}"
                                                            TextWrapping="Wrap" VerticalAlignment="Center" />
                                             </Grid>
                                         </DataTemplate>
                                     </ListView.ItemTemplate>
                                 </ListView>
-                                <TextBlock Text="{Binding LogDirectory}" FontSize="11" Opacity="0.6"
-                                           TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding LogDirectory}" TextWrapping="Wrap"
+                                           Style="{StaticResource CaptionTextBlockStyle}"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                 <Button Content="ログフォルダを開く" HorizontalAlignment="Stretch"
                                         Command="{Binding OpenLogLocationCommand}" />
                             </StackPanel>
