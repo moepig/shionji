@@ -29,7 +29,7 @@ internal sealed class FakeCatalog : IResourceCatalog
     public List<ResourceQuery> Queries { get; } = [];
 
     public Task<ResolutionOutcome> ResolveAsync(
-        AwsContext aws, ResourceQuery query, CancellationToken cancellationToken = default)
+        AwsContext aws, ResourceQuery query, FailurePhase phase, CancellationToken cancellationToken = default)
     {
         CallCount++;
         Queries.Add(query);
