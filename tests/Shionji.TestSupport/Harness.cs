@@ -1,10 +1,11 @@
+using Shionji.Application;
 using Shionji.Domain.Tunneling;
 using Shionji.Domain.ValueObjects;
 
-namespace Shionji.Application.Tests;
+namespace Shionji.TestSupport;
 
 /// <summary>フェイク一式で構成した Application 層のテストハーネス。</summary>
-internal sealed class Harness
+public sealed class Harness
 {
     public FakeCatalog Catalog { get; } = new();
     public FakeLauncher Launcher { get; } = new();

@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Shionji.Application\Shionji.Application.csproj" />
+    <ProjectReference Include="..\Shionji.TestSupport\Shionji.TestSupport.csproj" />
   </ItemGroup>
 
 </Project>

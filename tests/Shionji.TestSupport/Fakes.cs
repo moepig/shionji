@@ -1,3 +1,4 @@
+using Shionji.Application;
 using Shionji.Domain.Configuration;
 using Shionji.Domain.Ports;
 using Shionji.Domain.Primitives;
@@ -5,9 +6,9 @@ using Shionji.Domain.Resolution;
 using Shionji.Domain.Tunneling;
 using Shionji.Domain.ValueObjects;
 
-namespace Shionji.Application.Tests;
+namespace Shionji.TestSupport;
 
-internal sealed class FakeCatalog : IResourceCatalog
+public sealed class FakeCatalog : IResourceCatalog
 {
     public Func<AwsContext, ResourceQuery, ResolutionOutcome> Handler { get; set; } = DefaultHandler;
 
@@ -37,7 +38,7 @@ internal sealed class FakeCatalog : IResourceCatalog
     }
 }
 
-internal sealed class FakeHandle(Port localPort) : ITunnelHandle
+public sealed class FakeHandle(Port localPort) : ITunnelHandle
 {
     public Port LocalPort { get; } = localPort;
     public bool Stopped { get; private set; }
@@ -59,7 +60,7 @@ internal sealed class FakeHandle(Port localPort) : ITunnelHandle
     public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 }
 
-internal sealed class FakeLauncher : ITunnelLauncher
+public sealed class FakeLauncher : ITunnelLauncher
 {
     /// <summary>計画を受け取り成否を決める。既定は常に成功。</summary>
     public Func<TunnelPlan, Result<ITunnelHandle, ErrorDetail>>? Handler { get; set; }
@@ -85,7 +86,7 @@ internal sealed class FakeLauncher : ITunnelLauncher
     public FakeHandle LastHandle => Handles[^1];
 }
 
-internal sealed class FakePortProbe : ILocalPortProbe
+public sealed class FakePortProbe : ILocalPortProbe
 {
     public HashSet<int> BusyPorts { get; } = [];
     public int NextFreePort { get; set; } = 50000;
@@ -96,13 +97,13 @@ internal sealed class FakePortProbe : ILocalPortProbe
         Result<Port, ErrorDetail>.Success(Port.Create(NextFreePort).Value);
 }
 
-internal sealed class FakeClock : IClock
+public sealed class FakeClock : IClock
 {
     public DateTimeOffset UtcNow { get; set; } = DateTimeOffset.UnixEpoch;
 }
 
 /// <summary>待機せず即座に完了するスケジューラ。要求された待機時間を記録する。</summary>
-internal sealed class ImmediateScheduler : IRetryScheduler
+public sealed class ImmediateScheduler : IRetryScheduler
 {
     public List<TimeSpan> Delays { get; } = [];
 
@@ -115,7 +116,7 @@ internal sealed class ImmediateScheduler : IRetryScheduler
 }
 
 /// <summary>Release されるまで待機し続けるスケジューラ。再試行待ち中の挙動を検証する。</summary>
-internal sealed class BlockingScheduler : IRetryScheduler
+public sealed class BlockingScheduler : IRetryScheduler
 {
     private readonly TaskCompletionSource _gate = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -130,7 +131,7 @@ internal sealed class BlockingScheduler : IRetryScheduler
     }
 }
 
-internal sealed class InMemoryRepository : IForwardingConfigRepository
+public sealed class InMemoryRepository : IForwardingConfigRepository
 {
     private readonly Dictionary<ConfigId, ForwardingConfig> _store = [];
 

@@ -2,9 +2,9 @@ using Shionji.Domain.Configuration;
 using Shionji.Domain.Resolution;
 using Shionji.Domain.ValueObjects;
 
-namespace Shionji.Application.Tests;
+namespace Shionji.TestSupport;
 
-internal static class TestData
+public static class TestData
 {
     public static Port Port(int value) => Domain.ValueObjects.Port.Create(value).Value;
 
@@ -58,7 +58,7 @@ internal static class TestData
             new ConfigOptions(autoReconnect, ConnectOnLaunch: false)).Value;
 }
 
-internal static class Wait
+public static class Wait
 {
     public static async Task UntilAsync(Func<bool> condition, int timeoutMs = 2000)
     {
