@@ -98,6 +98,10 @@ public sealed partial class ConfigDetailViewModel(
 
     public ObservableCollection<string> LogLines { get; } = [];
 
+    /// <summary>セッションログ全文。読み取り専用のテキストとして選択・コピーできるようにする。</summary>
+    [ObservableProperty]
+    public partial string LogText { get; set; } = string.Empty;
+
     [RelayCommand]
     private Task ConnectAsync() => owner.ConnectAsync(ConfigId);
 
@@ -112,17 +116,6 @@ public sealed partial class ConfigDetailViewModel(
     {
         if (LocalEndpoint is { } endpoint)
             CopyToClipboard(endpoint, "接続先をコピーしました");
-    }
-
-    /// <summary>セッションログ全体をクリップボードへ。</summary>
-    [RelayCommand]
-    private void CopyLog()
-    {
-        if (LogLines.Count == 0)
-            return;
-
-        CopyToClipboard(
-            string.Join(Environment.NewLine, LogLines), $"ログ {LogLines.Count} 行をコピーしました");
     }
 
     /// <summary>コピーしたことを一時的に知らせる。連続でコピーしても最後の 1 回だけが残る。</summary>
@@ -176,6 +169,7 @@ public sealed partial class ConfigDetailViewModel(
     {
         LogLines.Clear();
         HasLog = false;
+        LogText = string.Empty;
         foreach (var line in lines)
             AddLine(line);
     }
@@ -186,6 +180,7 @@ public sealed partial class ConfigDetailViewModel(
         while (LogLines.Count > MaxLogLines)
             LogLines.RemoveAt(0);
         HasLog = LogLines.Count > 0;
+        LogText = string.Join(Environment.NewLine, LogLines);
     }
 
     internal void Refresh(

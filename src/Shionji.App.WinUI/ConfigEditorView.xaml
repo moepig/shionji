@@ -14,6 +14,25 @@
                BasedOn="{StaticResource BodyStrongTextBlockStyle}">
             <Setter Property="Margin" Value="0,10,0,0" />
         </Style>
+
+        <!-- タグ条件 1 件分の行 (キー / 値 / 削除) -->
+        <DataTemplate x:Key="TagEntryTemplate">
+            <Grid ColumnSpacing="6" Margin="0,0,0,4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBox PlaceholderText="キー" Text="{Binding Key, Mode=TwoWay}" />
+                <TextBlock Grid.Column="1" Text="=" VerticalAlignment="Center" />
+                <TextBox Grid.Column="2" PlaceholderText="値" Text="{Binding Value, Mode=TwoWay}" />
+                <Button Grid.Column="3" Content="&#xE74D;" ToolTipService.ToolTip="この条件を削除"
+                        FontFamily="{ThemeResource SymbolThemeFontFamily}"
+                        Background="Transparent" BorderThickness="0"
+                        Command="{Binding RemoveCommand}" />
+            </Grid>
+        </DataTemplate>
     </UserControl.Resources>
 
     <Grid RowSpacing="12">
@@ -48,7 +67,12 @@
                 <StackPanel Spacing="10"
                             Visibility="{Binding IsNamedQueryDestination, Converter={StaticResource BoolToVis}}">
                     <TextBox Header="名前パターン (glob: * ?)" Text="{Binding DestNamePattern, Mode=TwoWay}" />
-                    <TextBox Header="タグ条件 (Key=値; Key2=値2 — すべて満たすもの)" Text="{Binding DestTagsText, Mode=TwoWay}" />
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="タグ条件 (並べた条件はすべて満たすもの)" />
+                        <ItemsControl ItemsSource="{Binding DestTags}"
+                                      ItemTemplate="{StaticResource TagEntryTemplate}" />
+                        <Button Content="＋ タグ条件を追加" Command="{Binding AddDestTagCommand}" />
+                    </StackPanel>
                 </StackPanel>
 
                 <ComboBox Header="エンドポイント" MinWidth="240"
@@ -95,7 +119,12 @@
                 <StackPanel Spacing="10"
                             Visibility="{Binding IsEc2ByQueryGateway, Converter={StaticResource BoolToVis}}">
                     <TextBox Header="名前パターン" Text="{Binding GwNamePattern, Mode=TwoWay}" />
-                    <TextBox Header="タグ条件 (Key=値; Key2=値2 — すべて満たすもの)" Text="{Binding GwTagsText, Mode=TwoWay}" />
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="タグ条件 (並べた条件はすべて満たすもの)" />
+                        <ItemsControl ItemsSource="{Binding GwTags}"
+                                      ItemTemplate="{StaticResource TagEntryTemplate}" />
+                        <Button Content="＋ タグ条件を追加" Command="{Binding AddGwTagCommand}" />
+                    </StackPanel>
                     <CheckBox Content="複数一致時は先頭を採用" IsChecked="{Binding GwPickFirst, Mode=TwoWay}" />
                 </StackPanel>
 
