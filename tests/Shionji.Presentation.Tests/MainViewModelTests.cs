@@ -94,6 +94,22 @@ public class MainViewModelTests
     }
 
     [Test]
+    public async Task 別の設定を保存しても行インスタンスと選択が維持される()
+    {
+        var ui = new UiHarness();
+        await ui.App.Configs.SaveAsync(TestData.StaticConfig(name: "api-db", localPort: 15001));
+        var apiRow = ui.Main.Rows.Single(r => r.Name == "api-db");
+        ui.Main.SelectedRow = apiRow;
+
+        await ui.App.Configs.SaveAsync(TestData.StaticConfig(name: "cache", localPort: 15002));
+
+        // 行 VM は再利用され、選択も外れない
+        await Assert.That(ReferenceEquals(ui.Main.Rows.Single(r => r.Name == "api-db"), apiRow)).IsTrue();
+        await Assert.That(ui.Main.SelectedRow).IsEqualTo(apiRow);
+        await Assert.That(ui.Main.Rows.Select(r => r.Name)).IsEquivalentTo(["api-db", "cache"]);
+    }
+
+    [Test]
     public async Task 追加ボタンで新規エディタが開く()
     {
         var ui = new UiHarness();

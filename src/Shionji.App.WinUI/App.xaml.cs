@@ -29,9 +29,36 @@ public partial class App : Microsoft.UI.Xaml.Application
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
+        if (!EnsureSingleInstance())
+            return;
+
         _services = BuildServices();
         _window = new MainWindow(_services, IsDemoMode);
         _window.Activate();
+    }
+
+    /// <summary>
+    /// 多重起動を防ぐ。既に起動済みなら起動要求をそちらへ回して終了する
+    /// (トレイ常駐中に再起動しても既存ウィンドウが前面に出るだけになる)。
+    /// デモモードと通常モードは別インスタンスとして扱う。
+    /// </summary>
+    private bool EnsureSingleInstance()
+    {
+        var key = IsDemoMode ? "shionji-demo" : "shionji-main";
+        var mainInstance = Microsoft.Windows.AppLifecycle.AppInstance.FindOrRegisterForKey(key);
+
+        if (!mainInstance.IsCurrent)
+        {
+            var activationArgs = Microsoft.Windows.AppLifecycle.AppInstance.GetCurrent().GetActivatedEventArgs();
+            // UI スレッドをブロックしないようスレッドプールで完了を待つ
+            Task.Run(() => mainInstance.RedirectActivationToAsync(activationArgs).AsTask()).Wait();
+            Environment.Exit(0);
+            return false;
+        }
+
+        mainInstance.Activated += (_, _) =>
+            _window?.DispatcherQueue.TryEnqueue(() => _window.ShowFromTray());
+        return true;
     }
 
     private ServiceProvider BuildServices()
