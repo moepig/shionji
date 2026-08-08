@@ -1,5 +1,6 @@
 using System.Text;
 using Microsoft.Extensions.Logging;
+using Shionji.Domain.Diagnostics;
 
 namespace Shionji.Infrastructure.Logging;
 
@@ -10,11 +11,13 @@ namespace Shionji.Infrastructure.Logging;
 public sealed class FileLoggerProvider : ILoggerProvider
 {
     private readonly string _directory;
+    private readonly int _retentionDays;
     private readonly object _sync = new();
 
-    public FileLoggerProvider(string directory)
+    public FileLoggerProvider(string directory, int retentionDays = 30)
     {
         _directory = directory;
+        _retentionDays = retentionDays;
         Directory.CreateDirectory(directory);
         CleanupOldFiles();
     }
@@ -45,7 +48,7 @@ public sealed class FileLoggerProvider : ILoggerProvider
     {
         try
         {
-            var cutoff = DateTime.Now.AddDays(-14);
+            var cutoff = DateTime.Now.AddDays(-_retentionDays);
             foreach (var file in Directory.EnumerateFiles(_directory, "shionji-*.log"))
             {
                 if (File.GetLastWriteTime(file) < cutoff)
@@ -73,15 +76,34 @@ public sealed class FileLoggerProvider : ILoggerProvider
             if (!IsEnabled(logLevel))
                 return;
 
+            // 監査目的で時刻の解釈がぶれないよう、オフセット付きの ISO 8601 で記録する
             var builder = new StringBuilder()
-                .Append(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff"))
+                .Append(DateTimeOffset.Now.ToString("yyyy-MM-dd'T'HH:mm:ss.fffzzz"))
                 .Append(" [").Append(Level(logLevel)).Append("] ")
                 .Append(category).Append(": ")
                 .Append(formatter(state, exception));
+
+            // 画面には出さない詳細フィールドをテキストログにだけ展開する
+            if (state is IDetailedLogState detailed && detailed.Details.Count > 0)
+            {
+                builder.Append(" |");
+                foreach (var (key, value) in detailed.Details)
+                    builder.Append(' ').Append(key).Append('=').Append(Quote(value));
+            }
+
             if (exception is not null)
                 builder.AppendLine().Append(exception);
 
             provider.Write(builder.ToString());
+        }
+
+        /// <summary>空白を含む値は引用符で囲み、key=値 の切れ目が曖昧にならないようにする。</summary>
+        private static string Quote(object? value)
+        {
+            var text = value?.ToString() ?? string.Empty;
+            return text.Any(char.IsWhiteSpace) || text.Contains('"')
+                ? $"\"{text.Replace("\"", "\"\"")}\""
+                : text;
         }
 
         private static string Level(LogLevel level) => level switch

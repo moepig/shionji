@@ -44,6 +44,19 @@ public static class TestData
             new GatewaySpec.Ec2(new Ec2Selector.ById(InstanceId.Create("i-0123456789abcdef0").Value)),
             new ConfigOptions(autoReconnect, connectOnLaunch)).Value;
 
+    /// <summary>EC2 クエリ転送先 + 経路 Direct の設定 (踏み台自身へ転送)。</summary>
+    public static ForwardingConfig DirectEc2Config(string name = "batch", int localPort = 12222) =>
+        ForwardingConfig.Create(
+            ConfigId.New(),
+            ConfigName.Create(name).Value,
+            Aws(),
+            new LocalPortSpec.Fixed(Port(localPort)),
+            new Destination.Query(
+                new Ec2Query(null, TagFilters.Empty, MatchPolicy.RequireSingle),
+                new PortSelection.Explicit(Port(22))),
+            GatewaySpec.Direct.Instance,
+            ConfigOptions.Default).Value;
+
     /// <summary>ElastiCache クエリ転送先 + EC2 クエリ踏み台の設定 (両方の解決が必要)。</summary>
     public static ForwardingConfig QueryConfig(bool autoReconnect = false, bool connectOnLaunch = false) =>
         ForwardingConfig.Create(

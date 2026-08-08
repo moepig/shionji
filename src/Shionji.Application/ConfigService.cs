@@ -55,7 +55,7 @@ public sealed class ConfigService(
 
     public async Task SaveAsync(ForwardingConfig config, CancellationToken cancellationToken = default)
     {
-        await supervisor.StopAsync(config.Id);
+        await supervisor.StopAsync(config.Id, StopReason.ConfigChanged);
         await repository.SaveAsync(config, cancellationToken);
         lock (_sync)
         {
@@ -66,21 +66,26 @@ public sealed class ConfigService(
                 _configs.Add(config);
         }
 
-        _log.LogInformation("設定「{Name}」を保存しました", config.Name.Value);
+        _log.Audit(LogLevel.Information, $"設定「{config.Name.Value}」を保存しました",
+            ("操作", "保存"),
+            ("設定", config.Name.Value),
+            ("設定ID", config.Id.Value),
+            ("プロファイル", $"{config.Aws.Profile.Value}@{config.Aws.Region.Value}"));
         ConfigsChanged?.Invoke(this, EventArgs.Empty);
     }
 
     public async Task DeleteAsync(ConfigId id, CancellationToken cancellationToken = default)
     {
         var name = Find(id)?.Name.Value ?? id.ToString();
-        await supervisor.StopAsync(id);
+        await supervisor.StopAsync(id, StopReason.ConfigChanged);
         await repository.DeleteAsync(id, cancellationToken);
         lock (_sync)
         {
             _configs.RemoveAll(c => c.Id == id);
         }
 
-        _log.LogInformation("設定「{Name}」を削除しました", name);
+        _log.Audit(LogLevel.Information, $"設定「{name}」を削除しました",
+            ("操作", "削除"), ("設定", name), ("設定ID", id.Value));
         resolutionService.Remove(id);
         sessionLogStore.Remove(id);
         ConfigsChanged?.Invoke(this, EventArgs.Empty);

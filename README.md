@@ -100,6 +100,38 @@ dotnet build src/Shionji.App.WinUI/Shionji.App.WinUI.csproj
 
 - 転送設定: `%APPDATA%\Shionji\configs.json`
 - アプリ設定 (plugin パス / トレイ挙動 / AWS エンドポイント上書き): `%APPDATA%\Shionji\appsettings.json`
-- ログ: `%APPDATA%\Shionji\logs\shionji-yyyyMMdd.log` (14 日で自動削除)
+- ログ: `%APPDATA%\Shionji\logs\shionji-yyyyMMdd.log` (既定 30 日で自動削除。`LogRetentionDays` で変更可)
+
+## ログ (監査用途)
+
+1 つの出来事につき「短い要約」と「詳細フィールド」を持ち、**画面には要約だけ、テキストログには詳細まで**出力する。画面のステータスバーは一目で状況が分かる簡潔さを保ち、ファイルは監査に必要な事実をすべて残す。
+
+画面 (ステータスバー / 履歴):
+
+```
+api-db: localhost:13306 で接続しました
+```
+
+テキストログ (`ISO 8601 タイムスタンプ(オフセット付き) [レベル] カテゴリ: 要約 | key=値 …`):
+
+```
+2026-08-08T18:13:56.615+09:00 [INF] Shionji.Application.TunnelSupervisor: api-db: localhost:13306 で接続しました | 試行=6128f3e6 設定=api-db 転送先=demo-aurora.cluster-demo.ap-northeast-1.rds.amazonaws.com:3306 経路=EC2:i-0demo0123456789a SSMターゲット=i-0demo0123456789a 文書=AWS-StartPortForwardingSessionToRemoteHost プロファイル=demo@ap-northeast-1 ローカル=localhost:13306 セッション=s-demo508478
+```
+
+値に空白が含まれる場合は `"` で囲まれるため、`key=値` として機械的に読み取れる。
+
+記録される項目:
+
+| 項目 | 内容 |
+| --- | --- |
+| 起動時 | アプリの版、OS 利用者 (`ドメイン\ユーザー`)、端末名、プロセス ID |
+| `#xxxxxxxx` | 接続試行ごとの相関 ID。1 回の試行に属する行を突き合わせる。再接続では振り直す |
+| `転送先` / `経路` / `文書` | 実際に繋いだエンドポイント、経由した踏み台 (SSM ターゲット)、使用した SSM ドキュメント |
+| `プロファイル` | 使用した AWS プロファイルとリージョン |
+| `セッション` | SSM セッション ID。CloudTrail や `aws ssm describe-sessions` と突き合わせる鍵 |
+| 解決の証跡 | 検索条件がどの実リソースに解決されたか (表示名 + ARN / インスタンス ID + エンドポイント) |
+| 切断 | 理由 (利用者操作 / 設定変更 / アプリ終了 / 予期せぬ終了)、接続時間、原因のフェーズとコード |
+
+セッショントークンや資格情報はログに出力しない。
 
 デモモードはファイルに一切書き込まない (インメモリ)。
