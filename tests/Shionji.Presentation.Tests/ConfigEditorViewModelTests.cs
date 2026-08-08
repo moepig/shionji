@@ -86,7 +86,12 @@ public class ConfigEditorViewModelTests
         editor.LocalPortText = string.Empty; // 自動割当
         editor.DestinationKind = DestinationKind.ElastiCache;
         editor.DestNamePattern = "prod-redis*";
-        editor.DestTagsText = "Environment=production; Team=platform";
+        editor.AddDestTagCommand.Execute(null);
+        editor.DestTags[0].Key = "Environment";
+        editor.DestTags[0].Value = "production";
+        editor.AddDestTagCommand.Execute(null);
+        editor.DestTags[1].Key = "Team";
+        editor.DestTags[1].Value = "platform";
         editor.CacheRole = CacheEndpointRole.Reader;
         editor.DestPortText = string.Empty; // 既定ポート
         editor.GatewayKind = GatewayKind.Ec2ByQuery;
@@ -150,15 +155,41 @@ public class ConfigEditorViewModelTests
     }
 
     [Test]
-    public async Task タグ条件の書式()
+    public async Task タグ条件は行ごとに追加削除できる()
     {
-        // 並べた条件はすべて満たす必要がある (AND)。同一キーの複数値 (OR) は扱わない
-        var tags = ConfigEditorViewModel.ParseTags("Env=prod; Team=platform");
-        await Assert.That(tags.Items.Count).IsEqualTo(2);
-        await Assert.That(tags.Items[0].Key).IsEqualTo("Env");
-        await Assert.That(tags.Items[0].Value).IsEqualTo("prod");
+        var ui = new UiHarness();
+        var editor = NewEditor(ui);
+        editor.DestinationKind = DestinationKind.Ec2;
 
-        await Assert.That(ConfigEditorViewModel.ParseTags("  ").IsEmpty).IsTrue();
-        await Assert.That(ConfigEditorViewModel.FormatTags(tags)).IsEqualTo("Env=prod; Team=platform");
+        editor.AddDestTagCommand.Execute(null);
+        editor.AddDestTagCommand.Execute(null);
+        await Assert.That(editor.DestTags.Count).IsEqualTo(2);
+
+        editor.DestTags[1].RemoveCommand.Execute(null);
+        await Assert.That(editor.DestTags.Count).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task 空の行は無視し片方だけの行はエラーにする()
+    {
+        var ui = new UiHarness();
+        var editor = NewEditor(ui);
+        editor.Name = "x";
+        editor.Profile = "dev";
+        editor.DestinationKind = DestinationKind.Ec2;
+        editor.DestPortText = "22";
+        editor.GatewayKind = GatewayKind.Direct;
+
+        // 空行だけなら条件なしとして通る
+        editor.AddDestTagCommand.Execute(null);
+        var built = editor.Build();
+        await Assert.That(built.IsSuccess).IsTrue();
+        await Assert.That(((Destination.Query)built.Value.Destination).ResourceQuery.Tags.IsEmpty).IsTrue();
+
+        // キーだけ埋まっている行はエラー
+        editor.DestTags[0].Key = "Environment";
+        var invalid = editor.Build();
+        await Assert.That(invalid.IsFailure).IsTrue();
+        await Assert.That(invalid.Error).Contains("タグ条件");
     }
 }

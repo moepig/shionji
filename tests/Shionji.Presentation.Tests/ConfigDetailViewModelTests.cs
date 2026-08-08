@@ -133,7 +133,7 @@ public class ConfigDetailViewModelTests
     }
 
     [Test]
-    public async Task セッションログをまとめてコピーできる()
+    public async Task セッションログは選択してコピーできるテキストになる()
     {
         var ui = new UiHarness();
         await ui.App.Configs.SaveAsync(TestData.StaticConfig(name: "api-db"));
@@ -144,25 +144,22 @@ public class ConfigDetailViewModelTests
         ui.App.Launcher.LastHandle.EmitLog("second line", isError: true);
 
         var detail = (ConfigDetailViewModel)ui.Main.DetailContent!;
-        detail.CopyLogCommand.Execute(null);
 
-        await Assert.That(ui.Clipboard.LastText!).Contains("first line");
-        await Assert.That(ui.Clipboard.LastText!).Contains("[stderr] second line");
-        await Assert.That(detail.CopyConfirmationText).IsEqualTo("ログ 2 行をコピーしました");
+        // 画面では読み取り専用テキストとして出すので、全文が 1 つの文字列になっている
+        await Assert.That(detail.LogText)
+            .IsEqualTo($"first line{Environment.NewLine}[stderr] second line");
     }
 
     [Test]
-    public async Task ログが無ければコピーしない()
+    public async Task ログが無ければ本文も空()
     {
         var ui = new UiHarness();
         await ui.App.Configs.SaveAsync(TestData.StaticConfig(name: "api-db"));
         ui.Main.SelectedRow = ui.Main.Rows[0];
         var detail = (ConfigDetailViewModel)ui.Main.DetailContent!;
 
-        detail.CopyLogCommand.Execute(null);
-
-        await Assert.That(ui.Clipboard.LastText).IsNull();
-        await Assert.That(detail.IsCopyConfirmationVisible).IsFalse();
+        await Assert.That(detail.LogText).IsEmpty();
+        await Assert.That(detail.HasLog).IsFalse();
     }
 
     [Test]

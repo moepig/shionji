@@ -223,31 +223,16 @@
                             </Button>
                         </StackPanel>
 
-                        <StackPanel Orientation="Horizontal" Spacing="8"
-                                    Visibility="{Binding HasLog, Converter={StaticResource BoolToVis}}">
-                            <TextBlock Text="セッションログ" Style="{StaticResource SectionHeadingStyle}"
-                                       VerticalAlignment="Center" />
-                            <Button Content="コピー" VerticalAlignment="Bottom"
-                                    Command="{Binding CopyLogCommand}" />
-                        </StackPanel>
-                        <ListView ItemsSource="{Binding LogLines}" MaxHeight="180"
-                                  SelectionMode="None"
-                                  Visibility="{Binding HasLog, Converter={StaticResource BoolToVis}}">
-                            <ListView.ItemContainerStyle>
-                                <Style TargetType="ListViewItem">
-                                    <Setter Property="MinHeight" Value="22" />
-                                    <Setter Property="Padding" Value="8,0" />
-                                </Style>
-                            </ListView.ItemContainerStyle>
-                            <ListView.ItemTemplate>
-                                <DataTemplate>
-                                    <!-- 1 行ずつ選択してコピーできるようにする -->
-                                    <TextBlock Text="{Binding}" IsTextSelectionEnabled="True"
-                                               Style="{StaticResource CaptionTextBlockStyle}"
-                                               TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
-                                </DataTemplate>
-                            </ListView.ItemTemplate>
-                        </ListView>
+                        <TextBlock Text="セッションログ" Style="{StaticResource SectionHeadingStyle}"
+                                   Visibility="{Binding HasLog, Converter={StaticResource BoolToVis}}" />
+                        <!-- 読み取り専用のテキストとして、範囲選択して Ctrl+C できるようにする -->
+                        <TextBox Text="{Binding LogText}" IsReadOnly="True" AcceptsReturn="True"
+                                 TextWrapping="NoWrap" Height="180"
+                                 FontFamily="Consolas" FontSize="12"
+                                 IsSpellCheckEnabled="False"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                 Visibility="{Binding HasLog, Converter={StaticResource BoolToVis}}" />
                     </StackPanel>
                 </ScrollViewer>
             </DataTemplate>
@@ -323,10 +308,13 @@
                     </Border>
 
                     <Grid Grid.Row="1" Padding="12">
+                        <!-- Content が null でもテンプレートは適用されるため、明示的に隠す
+                             (でないと値が空のままの詳細フォームが出てしまう) -->
                         <ContentControl Content="{Binding DetailContent}"
                                         ContentTemplate="{StaticResource DetailTemplate}"
                                         HorizontalContentAlignment="Stretch"
-                                        VerticalContentAlignment="Stretch" />
+                                        VerticalContentAlignment="Stretch"
+                                        Visibility="{Binding DetailContent, Converter={StaticResource NullToVis}}" />
 
                         <!-- 何も選択していないときに空白の理由を示す -->
                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6"

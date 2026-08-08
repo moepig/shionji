@@ -86,9 +86,11 @@ public sealed partial class ConfigEditorViewModel : ObservableObject
     [ObservableProperty]
     public partial string DestNamePattern { get; set; } = string.Empty;
 
-    /// <summary>「Key=v1|v2; Key2=v3」形式。</summary>
-    [ObservableProperty]
-    public partial string DestTagsText { get; set; } = string.Empty;
+    /// <summary>転送先のタグ条件。行を並べるとすべて満たすもの (AND) を探す。</summary>
+    public ObservableCollection<TagEntryViewModel> DestTags { get; } = [];
+
+    [RelayCommand]
+    private void AddDestTag() => DestTags.Add(new TagEntryViewModel(e => DestTags.Remove(e)));
 
     [ObservableProperty]
     public partial bool DestPickFirst { get; set; }
@@ -125,8 +127,11 @@ public sealed partial class ConfigEditorViewModel : ObservableObject
     [ObservableProperty]
     public partial string GwNamePattern { get; set; } = string.Empty;
 
-    [ObservableProperty]
-    public partial string GwTagsText { get; set; } = string.Empty;
+    /// <summary>踏み台のタグ条件 (AND)。</summary>
+    public ObservableCollection<TagEntryViewModel> GwTags { get; } = [];
+
+    [RelayCommand]
+    private void AddGwTag() => GwTags.Add(new TagEntryViewModel(e => GwTags.Remove(e)));
 
     [ObservableProperty]
     public partial bool GwPickFirst { get; set; }
@@ -356,7 +361,7 @@ public sealed partial class ConfigEditorViewModel : ObservableObject
         var name = string.IsNullOrWhiteSpace(DestNamePattern)
             ? null
             : Require(NamePattern.Create(DestNamePattern));
-        var tags = ParseTags(DestTagsText);
+        var tags = BuildTags(DestTags, "転送先");
         var match = DestPickFirst ? MatchPolicy.PickFirst : MatchPolicy.RequireSingle;
 
         return DestinationKind switch
@@ -378,7 +383,7 @@ public sealed partial class ConfigEditorViewModel : ObservableObject
     {
         GatewayKind.Ec2ByQuery => new Ec2Query(
             string.IsNullOrWhiteSpace(GwNamePattern) ? null : Require(NamePattern.Create(GwNamePattern)),
-            ParseTags(GwTagsText),
+            BuildTags(GwTags, "踏み台"),
             GwPickFirst ? MatchPolicy.PickFirst : MatchPolicy.RequireSingle),
         GatewayKind.Ecs => new EcsTaskQuery(
             Require(ClusterName.Create(GwCluster)),
@@ -395,7 +400,7 @@ public sealed partial class ConfigEditorViewModel : ObservableObject
             Require(InstanceId.Create(GwInstanceId)))),
         GatewayKind.Ec2ByQuery => new GatewaySpec.Ec2(new Ec2Selector.ByQuery(new Ec2Query(
             string.IsNullOrWhiteSpace(GwNamePattern) ? null : Require(NamePattern.Create(GwNamePattern)),
-            ParseTags(GwTagsText),
+            BuildTags(GwTags, "踏み台"),
             GwPickFirst ? MatchPolicy.PickFirst : MatchPolicy.RequireSingle))),
         GatewayKind.Ecs => new GatewaySpec.Ecs(
             Require(ClusterName.Create(GwCluster)),
@@ -419,7 +424,7 @@ public sealed partial class ConfigEditorViewModel : ObservableObject
                     ? explicitPort.Port.Value.ToString()
                     : string.Empty;
                 DestNamePattern = query.ResourceQuery.Name?.Value ?? string.Empty;
-                DestTagsText = FormatTags(query.ResourceQuery.Tags);
+                PopulateTags(DestTags, query.ResourceQuery.Tags);
                 DestPickFirst = query.ResourceQuery.Match == MatchPolicy.PickFirst;
                 switch (query.ResourceQuery)
                 {
@@ -460,7 +465,7 @@ public sealed partial class ConfigEditorViewModel : ObservableObject
             case GatewaySpec.Ec2 { Selector: Ec2Selector.ByQuery byQuery }:
                 GatewayKind = GatewayKind.Ec2ByQuery;
                 GwNamePattern = byQuery.Query.Name?.Value ?? string.Empty;
-                GwTagsText = FormatTags(byQuery.Query.Tags);
+                PopulateTags(GwTags, byQuery.Query.Tags);
                 GwPickFirst = byQuery.Query.Match == MatchPolicy.PickFirst;
                 break;
             case GatewaySpec.Ecs ecs:
@@ -484,25 +489,28 @@ public sealed partial class ConfigEditorViewModel : ObservableObject
         return Require(Port.Create(value));
     }
 
-    /// <summary>「Key=値; Key2=値2」→ TagFilters。並べた条件はすべて満たす必要がある (AND)。</summary>
-    public static TagFilters ParseTags(string text)
+    /// <summary>
+    /// 入力行から TagFilters を作る。並べた行はすべて満たす必要がある (AND)。
+    /// キーも値も空の行は無視し、片方だけ埋まっている行はエラーにする。
+    /// </summary>
+    private static TagFilters BuildTags(IEnumerable<TagEntryViewModel> entries, string label)
     {
-        if (string.IsNullOrWhiteSpace(text))
-            return TagFilters.Empty;
-
         var filters = new List<TagFilter>();
-        foreach (var entry in text.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        foreach (var entry in entries.Where(e => !e.IsBlank))
         {
-            var separator = entry.IndexOf('=');
-            if (separator <= 0)
-                throw new FormException($"タグ条件は「キー=値」形式で指定してください: {entry}");
-
-            filters.Add(Require(TagFilter.Create(entry[..separator], entry[(separator + 1)..])));
+            var filter = TagFilter.Create(entry.Key, entry.Value);
+            if (filter.IsFailure)
+                throw new FormException($"{label}のタグ条件: {filter.Error}");
+            filters.Add(filter.Value);
         }
 
         return TagFilters.From(filters);
     }
 
-    public static string FormatTags(TagFilters tags) =>
-        string.Join("; ", tags.Items.Select(f => $"{f.Key}={f.Value}"));
+    private void PopulateTags(ObservableCollection<TagEntryViewModel> target, TagFilters tags)
+    {
+        target.Clear();
+        foreach (var filter in tags.Items)
+            target.Add(new TagEntryViewModel(e => target.Remove(e)) { Key = filter.Key, Value = filter.Value });
+    }
 }
