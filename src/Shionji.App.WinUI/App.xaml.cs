@@ -1,10 +1,12 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.UI.Xaml;
 using Shionji.Application;
 using Shionji.Domain.Ports;
 using Shionji.Infrastructure;
 using Shionji.Infrastructure.Aws;
 using Shionji.Infrastructure.Fakes;
+using Shionji.Infrastructure.Logging;
 using Shionji.Infrastructure.Storage;
 using Shionji.Infrastructure.Tunnel;
 using Shionji.Presentation;
@@ -35,6 +37,14 @@ public partial class App : Microsoft.UI.Xaml.Application
     private ServiceProvider BuildServices()
     {
         var services = new ServiceCollection();
+
+        var logDirectory = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Shionji", "logs");
+        services.AddLogging(builder =>
+        {
+            builder.SetMinimumLevel(LogLevel.Information);
+            builder.AddProvider(new FileLoggerProvider(logDirectory));
+        });
 
         services.AddSingleton<IClock, SystemClock>();
         services.AddSingleton<IRetryScheduler, TaskDelayRetryScheduler>();

@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Shionji.Domain.Configuration;
 using Shionji.Domain.Ports;
 using Shionji.Domain.Primitives;
@@ -33,8 +35,11 @@ public sealed class TunnelSupervisor(
     ILocalPortProbe portProbe,
     IClock clock,
     IRetryScheduler retryScheduler,
-    ResolutionService resolutionService) : IAsyncDisposable
+    ResolutionService resolutionService,
+    ILogger<TunnelSupervisor>? logger = null) : IAsyncDisposable
 {
+    private readonly ILogger _log = logger ?? NullLogger<TunnelSupervisor>.Instance;
+
     private sealed class SessionContext(ForwardingConfig config)
     {
         public ForwardingConfig Config { get; set; } = config;
@@ -168,49 +173,78 @@ public sealed class TunnelSupervisor(
 
     public ValueTask DisposeAsync() => new(StopAllAsync());
 
-    /// <summary>接続試行と、失敗時の再接続サイクル (バックオフ待機 → 再試行) を回す。</summary>
+    /// <summary>
+    /// 接続試行と、失敗時の再接続サイクル (バックオフ待機 → 再試行) を回す。
+    /// 予期しない例外はセッションを Failed へ落として封じ込める
+    /// (fire-and-forget で走るため、漏らすと Reconnecting のまま固まって原因も残らない)。
+    /// </summary>
     private async Task RunSessionAsync(SessionContext ctx, int epoch, CancellationToken cancellationToken)
     {
-        while (true)
+        try
         {
-            try
+            while (true)
             {
-                await AttemptOnceAsync(ctx, epoch, cancellationToken);
-            }
-            catch (OperationCanceledException)
-            {
-                return;
-            }
-
-            SessionState state;
-            lock (_sync)
-            {
-                if (ctx.Epoch != epoch)
+                try
+                {
+                    await AttemptOnceAsync(ctx, epoch, cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
                     return;
-                state = ctx.Session.State;
-            }
+                }
 
-            if (state is not SessionState.Reconnecting reconnecting)
-                return;
+                SessionState state;
+                lock (_sync)
+                {
+                    if (ctx.Epoch != epoch)
+                        return;
+                    state = ctx.Session.State;
+                }
 
-            try
-            {
-                await retryScheduler.DelayAsync(reconnecting.Delay, cancellationToken);
-            }
-            catch (OperationCanceledException)
-            {
-                return;
-            }
-
-            lock (_sync)
-            {
-                if (ctx.Epoch != epoch || ctx.Session.State is not SessionState.Reconnecting)
+                if (state is not SessionState.Reconnecting reconnecting)
                     return;
-                ctx.Session.RetryDue();
-            }
 
-            Emit(ctx);
+                _log.LogInformation(
+                    "{Config}: {Delay} 秒後に再接続します ({Attempt} 回目)",
+                    ctx.Config.Name.Value, reconnecting.Delay.TotalSeconds, reconnecting.Attempt);
+
+                try
+                {
+                    await retryScheduler.DelayAsync(reconnecting.Delay, cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
+
+                lock (_sync)
+                {
+                    if (ctx.Epoch != epoch || ctx.Session.State is not SessionState.Reconnecting)
+                        return;
+                    ctx.Session.RetryDue();
+                }
+
+                Emit(ctx);
+            }
         }
+        catch (Exception ex)
+        {
+            AbortOnUnexpectedFailure(ctx, epoch, ex);
+        }
+    }
+
+    private void AbortOnUnexpectedFailure(SessionContext ctx, int epoch, Exception exception)
+    {
+        _log.LogError(exception, "{Config}: セッション処理で予期しない例外", ctx.Config.Name.Value);
+        lock (_sync)
+        {
+            if (ctx.Epoch != epoch)
+                return;
+            ctx.Session.Abort(new ErrorDetail(
+                FailurePhase.Plugin, "InternalError", $"内部エラーが発生しました: {exception.Message}"));
+        }
+
+        Emit(ctx);
     }
 
     /// <summary>解決 → ローカルポート確定 → 計画 → 起動の 1 回分。</summary>
@@ -351,32 +385,43 @@ public sealed class TunnelSupervisor(
 
     private void OnTunnelExited(SessionContext ctx, int epoch, ErrorDetail error)
     {
-        ITunnelHandle? handle;
-        CancellationToken opToken;
-        lock (_sync)
+        try
         {
-            if (ctx.Epoch != epoch || ctx.Session.State is not SessionState.Established)
-                return;
+            ITunnelHandle? handle;
+            CancellationToken opToken;
+            lock (_sync)
+            {
+                if (ctx.Epoch != epoch || ctx.Session.State is not SessionState.Established)
+                    return;
 
-            handle = ctx.Handle;
-            ctx.Handle = null;
-            ctx.Session.ExitedUnexpectedly(error);
-            opToken = ctx.OpCts?.Token ?? CancellationToken.None;
+                handle = ctx.Handle;
+                ctx.Handle = null;
+                ctx.Session.ExitedUnexpectedly(error);
+                opToken = ctx.OpCts?.Token ?? CancellationToken.None;
+            }
+
+            _log.LogWarning(
+                "{Config}: トンネルが予期せず終了しました ({Code}: {Message})",
+                ctx.Config.Name.Value, error.Code, error.Message);
+
+            if (handle is not null)
+                _ = handle.DisposeAsync();
+
+            Emit(ctx);
+
+            SessionState state;
+            lock (_sync)
+            {
+                state = ctx.Session.State;
+            }
+
+            if (state is SessionState.Reconnecting reconnecting)
+                _ = ReconnectLoopAsync(ctx, epoch, reconnecting.Delay, opToken);
         }
-
-        if (handle is not null)
-            _ = handle.DisposeAsync();
-
-        Emit(ctx);
-
-        SessionState state;
-        lock (_sync)
+        catch (Exception ex)
         {
-            state = ctx.Session.State;
+            AbortOnUnexpectedFailure(ctx, epoch, ex);
         }
-
-        if (state is SessionState.Reconnecting reconnecting)
-            _ = ReconnectLoopAsync(ctx, epoch, reconnecting.Delay, opToken);
     }
 
     private async Task ReconnectLoopAsync(
@@ -384,21 +429,30 @@ public sealed class TunnelSupervisor(
     {
         try
         {
-            await retryScheduler.DelayAsync(initialDelay, cancellationToken);
+            try
+            {
+                await retryScheduler.DelayAsync(initialDelay, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+
+            lock (_sync)
+            {
+                if (ctx.Epoch != epoch || ctx.Session.State is not SessionState.Reconnecting)
+                    return;
+                ctx.Session.RetryDue();
+            }
+
+            Emit(ctx);
         }
-        catch (OperationCanceledException)
+        catch (Exception ex)
         {
+            AbortOnUnexpectedFailure(ctx, epoch, ex);
             return;
         }
 
-        lock (_sync)
-        {
-            if (ctx.Epoch != epoch || ctx.Session.State is not SessionState.Reconnecting)
-                return;
-            ctx.Session.RetryDue();
-        }
-
-        Emit(ctx);
         await RunSessionAsync(ctx, epoch, cancellationToken);
     }
 
@@ -440,6 +494,17 @@ public sealed class TunnelSupervisor(
         {
             state = ctx.Session.State;
             localPort = state is SessionState.Established established ? established.Plan.LocalPort : null;
+        }
+
+        if (state is SessionState.Failed failed)
+        {
+            _log.LogWarning(
+                "{Config}: 失敗 [{Phase}/{Code}] {Message}",
+                ctx.Config.Name.Value, failed.Error.Phase, failed.Error.Code, failed.Error.Message);
+        }
+        else
+        {
+            _log.LogInformation("{Config}: {State}", ctx.Config.Name.Value, state.GetType().Name);
         }
 
         SessionChanged?.Invoke(this, new SessionChangedEventArgs(ctx.Config.Id, state, localPort));

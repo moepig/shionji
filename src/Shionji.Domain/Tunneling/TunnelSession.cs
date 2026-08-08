@@ -123,6 +123,15 @@ public sealed class TunnelSession
         }
     }
 
+    /// <summary>
+    /// 監督側の予期しない障害でライフサイクルを続行できない。どの状態からでも Failed へ移す。
+    /// </summary>
+    public void Abort(ErrorDetail error)
+    {
+        ReconnectAttempt = 0;
+        State = new SessionState.Failed(error);
+    }
+
     /// <summary>切断処理が完了した。</summary>
     public void MarkClosed()
     {
