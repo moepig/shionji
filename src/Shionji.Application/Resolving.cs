@@ -29,7 +29,7 @@ internal static class SafeResolver
     {
         try
         {
-            return await catalog.ResolveAsync(aws, query, cancellationToken);
+            return await catalog.ResolveAsync(aws, query, phase, cancellationToken);
         }
         catch (OperationCanceledException)
         {
