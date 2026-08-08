@@ -183,6 +183,24 @@ public class TunnelSessionTests
     }
 
     [Test]
+    public async Task Abortはどの状態からでもFailedにする()
+    {
+        var idle = Session();
+        idle.Abort(TestData.Error());
+        await Assert.That(idle.State).IsTypeOf<SessionState.Failed>();
+
+        var reconnecting = EstablishedSession(autoReconnect: true);
+        reconnecting.ExitedUnexpectedly(TestData.Error());
+        reconnecting.Abort(TestData.Error());
+        await Assert.That(reconnecting.State).IsTypeOf<SessionState.Failed>();
+        await Assert.That(reconnecting.ReconnectAttempt).IsEqualTo(0);
+
+        // Failed からは再接続できる
+        reconnecting.RequestConnect();
+        await Assert.That(reconnecting.State).IsTypeOf<SessionState.Resolving>();
+    }
+
+    [Test]
     public async Task 不正な遷移は例外を投げる()
     {
         await Assert.That(() => Session().PlanReady(TestData.Plan()))
