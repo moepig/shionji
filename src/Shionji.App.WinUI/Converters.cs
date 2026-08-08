@@ -105,20 +105,3 @@ public sealed partial class EnumIndexConverter : IValueConverter
         };
     }
 }
-
-/// <summary>詳細ペインの中身 (詳細 / エディタ) を選ぶ。</summary>
-public sealed partial class DetailTemplateSelector : Microsoft.UI.Xaml.Controls.DataTemplateSelector
-{
-    public DataTemplate? Detail { get; set; }
-    public DataTemplate? Editor { get; set; }
-
-    protected override DataTemplate? SelectTemplateCore(object item) => item switch
-    {
-        ConfigDetailViewModel => Detail,
-        ConfigEditorViewModel => Editor,
-        _ => null,
-    };
-
-    protected override DataTemplate? SelectTemplateCore(object item, DependencyObject container) =>
-        SelectTemplateCore(item);
-}

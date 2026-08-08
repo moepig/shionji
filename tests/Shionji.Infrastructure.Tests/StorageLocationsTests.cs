@@ -92,15 +92,30 @@ public class StorageLocationsTests
     }
 
     [Test]
-    public async Task 保存してもほかの設定は失われない()
+    public async Task 設定画面で触らない項目は保存しても残る()
     {
+        // 設定画面はテーマと保存先しか扱わない。with で複製することで、
+        // 画面に無い項目 (plugin パスなど) が既定値に戻らないことを保証する
         using var temp = new TempDir();
-        var store = new AppSettingsStore(temp.File(AppPaths.SettingsFileName));
+        var path = temp.File(AppPaths.SettingsFileName);
+        var store = new AppSettingsStore(path);
+        store.Save(new AppSettings
+        {
+            PluginPath = @"C:\tools\session-manager-plugin.exe",
+            AwsEndpointOverride = "https://ssm.internal",
+            MinimizeToTray = false,
+            LogRetentionDays = 400,
+        });
 
-        store.Save(new AppSettings { PluginPath = @"C:\tools\session-manager-plugin.exe", MinimizeToTray = false });
+        // 設定画面の保存に相当する操作
+        store.Save(store.Current with { Theme = "Dark", LogDirectory = temp.File("logs") });
 
-        var reloaded = new AppSettingsStore(temp.File(AppPaths.SettingsFileName)).Load();
+        var reloaded = new AppSettingsStore(path).Load();
         await Assert.That(reloaded.PluginPath).IsEqualTo(@"C:\tools\session-manager-plugin.exe");
+        await Assert.That(reloaded.AwsEndpointOverride).IsEqualTo("https://ssm.internal");
         await Assert.That(reloaded.MinimizeToTray).IsFalse();
+        await Assert.That(reloaded.LogRetentionDays).IsEqualTo(400);
+        await Assert.That(reloaded.Theme).IsEqualTo("Dark");
+        await Assert.That(reloaded.LogDirectory).IsEqualTo(temp.File("logs"));
     }
 }

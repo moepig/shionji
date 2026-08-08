@@ -62,6 +62,20 @@ public enum AppTheme
     Dark,
 }
 
+/// <summary>テーマと保存文字列の相互変換。設定ファイルを手で編集されても落ちない。</summary>
+public static class AppThemes
+{
+    public static AppTheme Parse(string? value) =>
+        Enum.TryParse<AppTheme>(value, ignoreCase: true, out var parsed) && Enum.IsDefined(parsed)
+            ? parsed
+            : AppTheme.System;
+
+    public static string ToStorageValue(AppTheme theme) => theme.ToString();
+}
+
+/// <summary>設定ウィンドウで編集できる内容。同じ型の引数が並ぶ取り違えを防ぐためまとめる。</summary>
+public sealed record AppSettingsEdit(AppTheme Theme, string LogDirectory, string ConfigsDirectory);
+
 /// <summary>アプリ設定 (接続先設定とは別) の読み書きとテーマ適用。</summary>
 public interface IAppSettingsService
 {
@@ -76,6 +90,12 @@ public interface IAppSettingsService
     /// <summary>接続先設定ファイルの絶対パス。</summary>
     string ConfigsFilePath { get; }
 
+    /// <summary>指定が無いときのログの保存先。空欄と同じ意味かどうかの判定に使う。</summary>
+    string DefaultLogDirectory { get; }
+
+    /// <summary>指定が無いときの接続先設定の保存先。</summary>
+    string DefaultConfigsDirectory { get; }
+
     /// <summary>テーマを即座に適用する (保存は Save で行う)。</summary>
     void PreviewTheme(AppTheme theme);
 
@@ -83,5 +103,5 @@ public interface IAppSettingsService
     /// 保存する。フォルダの指定は空文字で既定に戻す。
     /// 保存はできたが完全には反映できなかった事情 (ファイルを移せなかったなど) を返す。
     /// </summary>
-    IReadOnlyList<string> Save(AppTheme theme, string logDirectory, string configsDirectory);
+    IReadOnlyList<string> Save(AppSettingsEdit edit);
 }

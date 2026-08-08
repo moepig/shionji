@@ -60,23 +60,6 @@
                 <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
             </Style>
 
-            <Style x:Key="SectionHeadingStyle" TargetType="TextBlock"
-                   BasedOn="{StaticResource BodyStrongTextBlockStyle}">
-                <Setter Property="Margin" Value="0,8,0,0" />
-            </Style>
-
-            <Style x:Key="FieldLabelStyle" TargetType="TextBlock"
-                   BasedOn="{StaticResource BodyTextBlockStyle}">
-                <Setter Property="VerticalAlignment" Value="Center" />
-                <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
-            </Style>
-
-            <Style x:Key="FieldValueStyle" TargetType="TextBlock"
-                   BasedOn="{StaticResource BodyTextBlockStyle}">
-                <Setter Property="VerticalAlignment" Value="Center" />
-                <Setter Property="IsTextSelectionEnabled" Value="True" />
-            </Style>
-
             <DataTemplate x:Key="RowTemplate">
                 <Grid Height="48" ColumnSpacing="10">
                     <Grid.ColumnDefinitions>
@@ -117,145 +100,6 @@
                 </Grid>
             </DataTemplate>
 
-            <DataTemplate x:Key="DetailTemplate">
-                <ScrollViewer>
-                    <StackPanel Spacing="8">
-                        <TextBlock Text="{Binding Name}" Style="{StaticResource SubtitleTextBlockStyle}" />
-
-                        <TextBlock Text="接続先設定" Style="{StaticResource SectionHeadingStyle}" />
-                        <Grid ColumnSpacing="12" RowSpacing="6">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" MinWidth="92" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                            </Grid.RowDefinitions>
-
-                            <TextBlock Grid.Row="0" Text="AWS プロファイル" Style="{StaticResource FieldLabelStyle}" />
-                            <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding ProfileText}"
-                                       Style="{StaticResource FieldValueStyle}" />
-
-                            <TextBlock Grid.Row="1" Text="リージョン" Style="{StaticResource FieldLabelStyle}" />
-                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding RegionText}"
-                                       Style="{StaticResource FieldValueStyle}" />
-
-                            <TextBlock Grid.Row="2" Text="経路" Style="{StaticResource FieldLabelStyle}" />
-                            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding GatewayText}"
-                                       Style="{StaticResource FieldValueStyle}" />
-
-                            <TextBlock Grid.Row="3" Text="転送先" Style="{StaticResource FieldLabelStyle}" />
-                            <!-- 特定できていないときだけ赤い方を重ねる。
-                                 Foreground を条件付きで差し替えるとテーマ既定の文字色を失う -->
-                            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding DestinationText}"
-                                       Style="{StaticResource FieldValueStyle}" />
-                            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding DestinationText}"
-                                       Style="{StaticResource FieldValueStyle}" Foreground="IndianRed"
-                                       Visibility="{Binding DestinationHasError, Converter={StaticResource BoolToVis}}" />
-
-                            <TextBlock Grid.Row="4" Text="ローカル" Style="{StaticResource FieldLabelStyle}" />
-                            <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Spacing="8">
-                                <TextBlock Text="{Binding LocalPortText}" FontFamily="Consolas"
-                                           VerticalAlignment="Center" IsTextSelectionEnabled="True" />
-                                <Button Content="コピー"
-                                        Command="{Binding CopyLocalEndpointCommand}"
-                                        Visibility="{Binding LocalEndpoint, Converter={StaticResource NullToVis}}" />
-                                <!-- コピー完了の一時表示。表示時に既定のアニメーションで現れる -->
-                                <Border Background="{ThemeResource SystemFillColorSuccessBackgroundBrush}"
-                                        CornerRadius="12" Padding="10,2" VerticalAlignment="Center"
-                                        Visibility="{Binding IsCopyConfirmationVisible, Converter={StaticResource BoolToVis}}">
-                                    <Border.Transitions>
-                                        <TransitionCollection>
-                                            <EntranceThemeTransition FromVerticalOffset="0" FromHorizontalOffset="12" />
-                                        </TransitionCollection>
-                                    </Border.Transitions>
-                                    <TextBlock Text="{Binding CopyConfirmationText}"
-                                               Style="{StaticResource CaptionTextBlockStyle}"
-                                               Foreground="{ThemeResource SystemFillColorSuccessBrush}" />
-                                </Border>
-                            </StackPanel>
-                        </Grid>
-
-                        <TextBlock Text="状態" Style="{StaticResource SectionHeadingStyle}" />
-                        <Grid ColumnSpacing="12" RowSpacing="6">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" MinWidth="92" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                            </Grid.RowDefinitions>
-
-                            <TextBlock Grid.Row="0" Text="セッション" Style="{StaticResource FieldLabelStyle}" />
-                            <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="8">
-                                <Ellipse Width="8" Height="8" VerticalAlignment="Center"
-                                         Fill="{Binding Status, Converter={StaticResource StatusBrush}}" />
-                                <TextBlock Text="{Binding SessionText}" VerticalAlignment="Center" />
-                            </StackPanel>
-
-                            <TextBlock Grid.Row="1" Text="エラー" Style="{StaticResource FieldLabelStyle}"
-                                       Visibility="{Binding ErrorText, Converter={StaticResource NullToVis}}" />
-                            <StackPanel Grid.Row="1" Grid.Column="1" Spacing="6"
-                                        Visibility="{Binding ErrorText, Converter={StaticResource NullToVis}}">
-                                <TextBlock Text="{Binding ErrorText}" TextWrapping="Wrap"
-                                           Foreground="IndianRed" IsTextSelectionEnabled="True" />
-                                <StackPanel Orientation="Horizontal" Spacing="8"
-                                            Visibility="{Binding CanSsoLogin, Converter={StaticResource BoolToVis}}">
-                                    <Button Content="SSO ログイン" Command="{Binding SsoLoginCommand}" />
-                                    <TextBlock Text="ブラウザで承認してください…" VerticalAlignment="Center"
-                                               Opacity="0.7"
-                                               Visibility="{Binding IsLoggingIn, Converter={StaticResource BoolToVis}}" />
-                                </StackPanel>
-                            </StackPanel>
-                        </Grid>
-
-                        <TextBlock Text="一致した候補" Style="{StaticResource SectionHeadingStyle}"
-                                   Visibility="{Binding HasCandidates, Converter={StaticResource BoolToVis}}" />
-                        <ItemsControl ItemsSource="{Binding Candidates}" Margin="8,0,0,0"
-                                      Visibility="{Binding HasCandidates, Converter={StaticResource BoolToVis}}" />
-
-                        <TextBlock Text="操作" Style="{StaticResource SectionHeadingStyle}" />
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <Button Content="接続" Command="{Binding ConnectCommand}"
-                                    IsEnabled="{Binding CanConnect}" />
-                            <Button Content="切断" Command="{Binding DisconnectCommand}"
-                                    IsEnabled="{Binding CanDisconnect}" />
-                            <Button Content="リソース再検索" Command="{Binding RefreshResolutionCommand}" />
-                            <Button Content="編集" Command="{Binding EditCommand}" />
-                            <!-- 取り消せない操作なので色で区別する -->
-                            <Button Content="削除" Command="{Binding DeleteCommand}">
-                                <Button.Resources>
-                                    <SolidColorBrush x:Key="ButtonBackground" Color="#C42B1C" />
-                                    <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="#B02418" />
-                                    <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#8E1D13" />
-                                    <SolidColorBrush x:Key="ButtonForeground" Color="White" />
-                                    <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="White" />
-                                    <SolidColorBrush x:Key="ButtonForegroundPressed" Color="White" />
-                                    <SolidColorBrush x:Key="ButtonBorderBrush" Color="Transparent" />
-                                    <SolidColorBrush x:Key="ButtonBorderBrushPointerOver" Color="Transparent" />
-                                    <SolidColorBrush x:Key="ButtonBorderBrushPressed" Color="Transparent" />
-                                </Button.Resources>
-                            </Button>
-                        </StackPanel>
-
-                        <TextBlock Text="セッションログ" Style="{StaticResource SectionHeadingStyle}"
-                                   Visibility="{Binding HasLog, Converter={StaticResource BoolToVis}}" />
-                        <!-- 読み取り専用のテキストとして、範囲選択して Ctrl+C できるようにする -->
-                        <TextBox Text="{Binding LogText}" IsReadOnly="True" AcceptsReturn="True"
-                                 TextWrapping="NoWrap" Height="180"
-                                 FontFamily="Consolas" FontSize="12"
-                                 IsSpellCheckEnabled="False"
-                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
-                                 ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                                 Visibility="{Binding HasLog, Converter={StaticResource BoolToVis}}" />
-                    </StackPanel>
-                </ScrollViewer>
-            </DataTemplate>
 
 
             </ResourceDictionary>
@@ -373,13 +217,12 @@
                     <!-- 中身はカードの地のまま。角丸はカードの内側に収める -->
                     <Border Grid.Row="1" Padding="12" CornerRadius="0,0,5,5">
                         <Grid>
-                            <!-- Content が null でもテンプレートは適用されるため、明示的に隠す
-                                 (でないと値が空のままの詳細フォームが出てしまう) -->
-                            <ContentControl Content="{Binding DetailContent}"
-                                            ContentTemplate="{StaticResource DetailTemplate}"
-                                            HorizontalContentAlignment="Stretch"
-                                            VerticalContentAlignment="Stretch"
-                                            Visibility="{Binding DetailContent, Converter={StaticResource NullToVis}}" />
+                            <!-- 未選択のときは中身ごと隠す (でないと値が空のフォームが出てしまう)。
+                                 Visibility は外側で判定する。内側は DataContext が
+                                 ConfigDetailViewModel に差し替わり MainViewModel を見られないため -->
+                            <Grid Visibility="{Binding DetailContent, Converter={StaticResource NullToVis}}">
+                                <local:ConfigDetailView DataContext="{Binding DetailContent}" />
+                            </Grid>
 
                             <!-- 何も選択していないときに空白の理由を示す -->
                             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6"

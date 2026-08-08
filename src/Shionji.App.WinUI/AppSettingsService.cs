@@ -56,7 +56,7 @@ public sealed class ThemeHost
 public sealed class WinUiAppSettingsService(AppSettingsStore settingsStore, ThemeHost themeHost)
     : IAppSettingsService
 {
-    public AppTheme Theme => ParseTheme(settingsStore.Current.Theme);
+    public AppTheme Theme => AppThemes.Parse(settingsStore.Current.Theme);
 
     public string LogDirectory => AppPaths.ResolveLogDirectory(settingsStore.Current);
 
@@ -64,32 +64,31 @@ public sealed class WinUiAppSettingsService(AppSettingsStore settingsStore, Them
 
     public string ConfigsFilePath => AppPaths.ResolveConfigsFilePath(settingsStore.Current);
 
-    public void PreviewTheme(AppTheme theme) => themeHost.Apply(theme switch
+    public string DefaultLogDirectory => AppPaths.DefaultLogDirectory;
+
+    public string DefaultConfigsDirectory => AppPaths.DefaultDirectory;
+
+    public void PreviewTheme(AppTheme theme) => themeHost.Apply(ThemeOf(theme));
+
+    public IReadOnlyList<string> Save(AppSettingsEdit edit)
+    {
+        PreviewTheme(edit.Theme);
+
+        // with で複製するので、ここで触っていない設定はそのまま残る
+        return settingsStore.Save(settingsStore.Current with
+        {
+            Theme = AppThemes.ToStorageValue(edit.Theme),
+            LogDirectory = AppPaths.NormalizeDirectory(edit.LogDirectory, AppPaths.DefaultLogDirectory),
+            ConfigsDirectory = AppPaths.NormalizeDirectory(edit.ConfigsDirectory, AppPaths.DefaultDirectory),
+        });
+    }
+
+    public static ElementTheme ThemeOf(AppTheme theme) => theme switch
     {
         AppTheme.Light => ElementTheme.Light,
         AppTheme.Dark => ElementTheme.Dark,
         _ => ElementTheme.Default,
-    });
-
-    public IReadOnlyList<string> Save(AppTheme theme, string logDirectory, string configsDirectory)
-    {
-        PreviewTheme(theme);
-
-        var current = settingsStore.Current;
-        return settingsStore.Save(new AppSettings
-        {
-            PluginPath = current.PluginPath,
-            AwsEndpointOverride = current.AwsEndpointOverride,
-            MinimizeToTray = current.MinimizeToTray,
-            LogRetentionDays = current.LogRetentionDays,
-            Theme = theme.ToString(),
-            LogDirectory = AppPaths.NormalizeDirectory(logDirectory, AppPaths.DefaultLogDirectory),
-            ConfigsDirectory = AppPaths.NormalizeDirectory(configsDirectory, AppPaths.DefaultDirectory),
-        });
-    }
-
-    public static AppTheme ParseTheme(string? value) =>
-        Enum.TryParse<AppTheme>(value, ignoreCase: true, out var parsed) ? parsed : AppTheme.System;
+    };
 }
 
 /// <summary>フォルダ選択ダイアログ。unpackaged では所有ウィンドウの明示が要る。</summary>
