@@ -12,15 +12,15 @@
         <Grid.Resources>
             <ResourceDictionary>
                 <ResourceDictionary.ThemeDictionaries>
-                    <!-- 詳細ペインの中身。カードより一段明るくして、見出し帯と区別する -->
+                    <!-- 一覧の中身。カードより一段明るくして、詳細ペインと区別する -->
                     <ResourceDictionary x:Key="Light">
-                        <SolidColorBrush x:Key="DetailBodyBackgroundBrush" Color="#F4F4F4" />
+                        <SolidColorBrush x:Key="ListBodyBackgroundBrush" Color="#FFFFFF" />
                     </ResourceDictionary>
                     <ResourceDictionary x:Key="Dark">
-                        <SolidColorBrush x:Key="DetailBodyBackgroundBrush" Color="#33333A" />
+                        <SolidColorBrush x:Key="ListBodyBackgroundBrush" Color="#33333A" />
                     </ResourceDictionary>
                     <ResourceDictionary x:Key="HighContrast">
-                        <SolidColorBrush x:Key="DetailBodyBackgroundBrush"
+                        <SolidColorBrush x:Key="ListBodyBackgroundBrush"
                                          Color="{ThemeResource SystemColorWindowColor}" />
                     </ResourceDictionary>
                 </ResourceDictionary.ThemeDictionaries>
@@ -30,21 +30,6 @@
             <local:BoolToVisibilityConverter x:Key="BoolToVis" />
             <local:NullToVisibilityConverter x:Key="NullToVis" />
             <local:EnumIndexConverter x:Key="EnumIndex" />
-
-            <!-- 画面の幅いっぱいに渡す帯。中身は文字入りの小さなボタン -->
-            <Style x:Key="ToolbarStyle" TargetType="Border">
-                <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorSecondaryBrush}" />
-                <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
-                <Setter Property="BorderThickness" Value="1" />
-                <Setter Property="CornerRadius" Value="4" />
-                <Setter Property="Padding" Value="4,3" />
-            </Style>
-
-            <Style x:Key="ToolbarButtonStyle" TargetType="Button">
-                <Setter Property="Background" Value="Transparent" />
-                <Setter Property="BorderThickness" Value="0" />
-                <Setter Property="Padding" Value="10,4" />
-            </Style>
 
             <!-- 一覧と詳細をカードとして囲み、境界を明示する -->
             <Style x:Key="PaneStyle" TargetType="Border">
@@ -283,25 +268,36 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- ツールバー: アプリ全体に対する操作。一覧固有の操作は一覧ペイン側にある -->
-        <Border Style="{StaticResource ToolbarStyle}">
-            <StackPanel Orientation="Horizontal" Spacing="2">
-                <Button Style="{StaticResource ToolbarButtonStyle}"
-                        Command="{Binding ShowSettingsCommand}">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <FontIcon Glyph="&#xE713;" FontSize="14" />
-                        <TextBlock Text="設定" />
-                    </StackPanel>
-                </Button>
-                <Button Style="{StaticResource ToolbarButtonStyle}"
-                        Command="{Binding OpenLogLocationCommand}">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <FontIcon Glyph="&#xE838;" FontSize="14" />
-                        <TextBlock Text="ログフォルダ" />
-                    </StackPanel>
-                </Button>
-            </StackPanel>
-        </Border>
+        <!-- メニューバー: アプリ全体に対する操作。一覧固有の操作は一覧ペイン側にもある -->
+        <MenuBar>
+            <MenuBarItem Title="ファイル">
+                <MenuFlyoutItem Text="接続先設定を追加…" Command="{Binding AddConfigCommand}">
+                    <MenuFlyoutItem.Icon>
+                        <FontIcon Glyph="&#xE710;" />
+                    </MenuFlyoutItem.Icon>
+                </MenuFlyoutItem>
+                <MenuFlyoutSeparator />
+                <MenuFlyoutItem Text="終了" Click="OnExitRequested" />
+            </MenuBarItem>
+            <MenuBarItem Title="ツール">
+                <MenuFlyoutItem Text="すべて再検索" Command="{Binding RefreshAllCommand}">
+                    <MenuFlyoutItem.Icon>
+                        <FontIcon Glyph="&#xE72C;" />
+                    </MenuFlyoutItem.Icon>
+                </MenuFlyoutItem>
+                <MenuFlyoutItem Text="ログフォルダを開く" Command="{Binding OpenLogLocationCommand}">
+                    <MenuFlyoutItem.Icon>
+                        <FontIcon Glyph="&#xE838;" />
+                    </MenuFlyoutItem.Icon>
+                </MenuFlyoutItem>
+                <MenuFlyoutSeparator />
+                <MenuFlyoutItem Text="設定…" Command="{Binding ShowSettingsCommand}">
+                    <MenuFlyoutItem.Icon>
+                        <FontIcon Glyph="&#xE713;" />
+                    </MenuFlyoutItem.Icon>
+                </MenuFlyoutItem>
+            </MenuBarItem>
+        </MenuBar>
 
         <Grid Grid.Row="1" ColumnSpacing="12">
             <Grid.ColumnDefinitions>
@@ -345,6 +341,7 @@
                     <ListView Grid.Row="1" ItemsSource="{Binding Rows}"
                               SelectedItem="{Binding SelectedRow, Mode=TwoWay}"
                               ItemTemplate="{StaticResource RowTemplate}"
+                              Background="{ThemeResource ListBodyBackgroundBrush}"
                               SelectionMode="Single" />
                     <Border Grid.Row="2" Style="{StaticResource PaneFooterStyle}">
                         <Button Content="＋ 接続先設定を追加" HorizontalAlignment="Stretch"
@@ -365,9 +362,8 @@
                         <TextBlock Text="{Binding DetailHeader}" Style="{StaticResource PaneTitleStyle}" />
                     </Border>
 
-                    <!-- 見出しと中身を色で分ける。角丸はカードの内側に収める -->
-                    <Border Grid.Row="1" Padding="12" CornerRadius="0,0,5,5"
-                            Background="{ThemeResource DetailBodyBackgroundBrush}">
+                    <!-- 中身はカードの地のまま。角丸はカードの内側に収める -->
+                    <Border Grid.Row="1" Padding="12" CornerRadius="0,0,5,5">
                         <Grid>
                             <!-- Content が null でもテンプレートは適用されるため、明示的に隠す
                                  (でないと値が空のままの詳細フォームが出てしまう) -->
@@ -394,9 +390,9 @@
             </Border>
         </Grid>
 
-        <!-- ステータスバー: 最新の動作を 1 行で出し、そこから履歴とログファイルへ辿れる -->
-        <Border Grid.Row="2" Padding="10,6" CornerRadius="4"
-                Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}">
+        <!-- ステータスバー: 最新の動作を 1 行で出し、そこから履歴とログファイルへ辿れる。
+             一覧・詳細と同じカードの扱いにして、全体背景に埋もれないようにする -->
+        <Border Grid.Row="2" Padding="10,6" Style="{StaticResource PaneStyle}">
             <Grid ColumnSpacing="8">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />

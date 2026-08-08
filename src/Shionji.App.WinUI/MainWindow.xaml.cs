@@ -63,6 +63,9 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    /// <summary>メニューの「終了」。トレイ格納ではなく、全セッションを畳んで本当に終了する。</summary>
+    private void OnExitRequested(object sender, RoutedEventArgs args) => _ = ExitAsync();
+
     private void OnClosing(AppWindow sender, AppWindowClosingEventArgs args)
     {
         if (!_exiting && _settings.Current.MinimizeToTray && _trayIcon is not null)
