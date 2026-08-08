@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using Shionji.Domain.Configuration;
 using Shionji.Domain.Ports;
 using Shionji.Domain.Resolution;
@@ -19,22 +18,42 @@ public sealed record ConfigResolutionView(
 /// <summary>
 /// リスト表示用の解決結果キャッシュ。起動時の全件解決、行 / 全体の手動更新を担う。
 /// 接続開始時の再解決結果は <see cref="TunnelSupervisor"/> が <see cref="Publish"/> で反映する。
+/// 手動更新 (遅い) と接続時 Publish (新しい) が競合した場合、
+/// 世代番号で古い書き込みを破棄し last-write-wins による巻き戻りを防ぐ。
 /// </summary>
 public sealed class ResolutionService(IResourceCatalog catalog, IClock clock)
 {
-    private readonly ConcurrentDictionary<ConfigId, ConfigResolutionView> _views = new();
+    private sealed record Entry(ConfigResolutionView View, long Version);
+
+    private readonly object _sync = new();
+    private readonly Dictionary<ConfigId, Entry> _entries = [];
+    private long _sequence;
 
     /// <summary>ビューが更新された設定の ID を通知する。</summary>
     public event EventHandler<ConfigId>? ViewChanged;
 
-    public ConfigResolutionView? GetView(ConfigId id) =>
-        _views.TryGetValue(id, out var view) ? view : null;
+    public ConfigResolutionView? GetView(ConfigId id)
+    {
+        lock (_sync)
+        {
+            return _entries.TryGetValue(id, out var entry) ? entry.View : null;
+        }
+    }
 
     public async Task RefreshAsync(ForwardingConfig config, CancellationToken cancellationToken = default)
     {
-        var previous = GetView(config.Id);
-        SetView(new ConfigResolutionView(
-            config.Id, IsResolving: true, previous?.Destination, previous?.Gateway, previous?.RefreshedAt));
+        long myVersion;
+        lock (_sync)
+        {
+            var previous = _entries.TryGetValue(config.Id, out var entry) ? entry.View : null;
+            myVersion = ++_sequence;
+            _entries[config.Id] = new Entry(
+                new ConfigResolutionView(
+                    config.Id, IsResolving: true, previous?.Destination, previous?.Gateway, previous?.RefreshedAt),
+                myVersion);
+        }
+
+        ViewChanged?.Invoke(this, config.Id);
 
         Task<ResolutionOutcome>? destinationTask = null;
         if (config.Destination is Destination.Query query)
@@ -53,26 +72,56 @@ public sealed class ResolutionService(IResourceCatalog catalog, IClock clock)
         var destination = destinationTask is null ? null : await destinationTask;
         var gateway = gatewayTask is null ? null : await gatewayTask;
 
-        SetView(new ConfigResolutionView(config.Id, IsResolving: false, destination, gateway, clock.UtcNow));
+        lock (_sync)
+        {
+            // この更新の開始後に別の書き込み (接続時の Publish など) があれば、
+            // こちらの方が古い情報なので破棄する
+            if (!_entries.TryGetValue(config.Id, out var entry) || entry.Version != myVersion)
+                return;
+
+            _entries[config.Id] = new Entry(
+                new ConfigResolutionView(config.Id, IsResolving: false, destination, gateway, clock.UtcNow),
+                ++_sequence);
+        }
+
+        ViewChanged?.Invoke(this, config.Id);
     }
 
     /// <summary>全設定を並列に解決する。</summary>
     public Task RefreshAllAsync(IEnumerable<ForwardingConfig> configs, CancellationToken cancellationToken = default) =>
         Task.WhenAll(configs.Select(c => RefreshAsync(c, cancellationToken)));
 
-    /// <summary>接続開始時などに外部で得られた最新の解決結果を反映する。</summary>
-    public void Publish(ForwardingConfig config, ResolutionOutcome? destination, ResolutionOutcome? gateway) =>
-        SetView(new ConfigResolutionView(config.Id, IsResolving: false, destination, gateway, clock.UtcNow));
+    /// <summary>
+    /// 接続開始時などに外部で得られた最新の解決結果を反映する。
+    /// null の側 (未解決のまま失敗した場合など) は直前の値を保持する。
+    /// </summary>
+    public void Publish(ForwardingConfig config, ResolutionOutcome? destination, ResolutionOutcome? gateway)
+    {
+        lock (_sync)
+        {
+            var previous = _entries.TryGetValue(config.Id, out var entry) ? entry.View : null;
+            _entries[config.Id] = new Entry(
+                new ConfigResolutionView(
+                    config.Id,
+                    IsResolving: false,
+                    destination ?? previous?.Destination,
+                    gateway ?? previous?.Gateway,
+                    clock.UtcNow),
+                ++_sequence);
+        }
+
+        ViewChanged?.Invoke(this, config.Id);
+    }
 
     public void Remove(ConfigId id)
     {
-        if (_views.TryRemove(id, out _))
-            ViewChanged?.Invoke(this, id);
-    }
+        bool removed;
+        lock (_sync)
+        {
+            removed = _entries.Remove(id);
+        }
 
-    private void SetView(ConfigResolutionView view)
-    {
-        _views[view.ConfigId] = view;
-        ViewChanged?.Invoke(this, view.ConfigId);
+        if (removed)
+            ViewChanged?.Invoke(this, id);
     }
 }
