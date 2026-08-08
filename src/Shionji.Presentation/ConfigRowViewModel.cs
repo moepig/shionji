@@ -83,7 +83,8 @@ public sealed partial class ConfigRowViewModel(MainViewModel owner, ConfigId con
         return $":{local} → {DestinationSummary(config, view)}";
     }
 
-    private static string DestinationSummary(ForwardingConfig config, ConfigResolutionView? view)
+    /// <summary>転送先の要約。一覧の 2 行目と詳細ペインの「転送先」で共用する。</summary>
+    public static string DestinationSummary(ForwardingConfig config, ConfigResolutionView? view)
     {
         switch (config.Destination)
         {
