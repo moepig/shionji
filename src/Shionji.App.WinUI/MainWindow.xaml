@@ -35,6 +35,49 @@
                 <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
             </Style>
 
+            <!-- 既定より詰めたコントロール。操作が多い画面なので高さを抑える -->
+            <Style TargetType="Button">
+                <Setter Property="MinWidth" Value="0" />
+                <Setter Property="MinHeight" Value="28" />
+                <Setter Property="Padding" Value="10,2,10,3" />
+                <Setter Property="FontSize" Value="13" />
+            </Style>
+
+            <Style TargetType="ToggleButton">
+                <Setter Property="MinWidth" Value="0" />
+                <Setter Property="MinHeight" Value="28" />
+                <Setter Property="Padding" Value="10,2,10,3" />
+                <Setter Property="FontSize" Value="13" />
+            </Style>
+
+            <Style TargetType="TextBox">
+                <Setter Property="MinHeight" Value="28" />
+            </Style>
+
+            <Style TargetType="ComboBox">
+                <Setter Property="MinHeight" Value="28" />
+            </Style>
+
+            <Style x:Key="SlimAccentButtonStyle" TargetType="Button"
+                   BasedOn="{StaticResource AccentButtonStyle}">
+                <Setter Property="MinWidth" Value="0" />
+                <Setter Property="MinHeight" Value="28" />
+                <Setter Property="Padding" Value="10,2,10,3" />
+                <Setter Property="FontSize" Value="13" />
+            </Style>
+
+            <!-- 一覧行の電源トグル (アイコンのみ) -->
+            <Style x:Key="RowToggleStyle" TargetType="ToggleButton">
+                <Setter Property="MinWidth" Value="0" />
+                <Setter Property="MinHeight" Value="0" />
+                <Setter Property="Width" Value="32" />
+                <Setter Property="Height" Value="26" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="FontSize" Value="13" />
+                <Setter Property="HorizontalContentAlignment" Value="Center" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+            </Style>
+
             <!-- 詳細ペインの節見出しと、項目名 / 値のラベル -->
             <Style x:Key="SectionHeadingStyle" TargetType="TextBlock">
                 <Setter Property="FontSize" Value="12" />
@@ -70,7 +113,8 @@
                         <TextBlock Text="{Binding Summary}" FontSize="12" Opacity="0.7"
                                    TextTrimming="CharacterEllipsis" />
                     </StackPanel>
-                    <ToggleButton Grid.Column="2" VerticalAlignment="Center" Padding="8,4"
+                    <ToggleButton Grid.Column="2" VerticalAlignment="Center"
+                                  Style="{StaticResource RowToggleStyle}"
                                   Content="&#x23FB;"
                                   IsChecked="{Binding IsConnected, Mode=OneWay}"
                                   Command="{Binding ToggleConnectionCommand}" />
@@ -116,7 +160,7 @@
                             <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Spacing="8">
                                 <TextBlock Text="{Binding LocalPortText}" FontFamily="Consolas"
                                            VerticalAlignment="Center" IsTextSelectionEnabled="True" />
-                                <Button Content="コピー" Padding="8,2" FontSize="12"
+                                <Button Content="コピー" Padding="8,1,8,2" FontSize="12"
                                         Command="{Binding CopyLocalEndpointCommand}"
                                         Visibility="{Binding LocalEndpoint, Converter={StaticResource NullToVis}}" />
                             </StackPanel>
@@ -281,7 +325,7 @@
                                    Visibility="{Binding ValidationError, Converter={StaticResource NullToVis}}" />
 
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <Button Content="保存" Style="{StaticResource AccentButtonStyle}"
+                            <Button Content="保存" Style="{StaticResource SlimAccentButtonStyle}"
                                     Command="{Binding SaveCommand}" />
                             <Button Content="キャンセル" Command="{Binding CancelCommand}" />
                         </StackPanel>
@@ -382,7 +426,8 @@
                 <TextBlock Grid.Column="2" VerticalAlignment="Center" FontSize="12" Opacity="0.6"
                            Text="{Binding StatusTime}" />
 
-                <Button Grid.Column="3" Content="ログ" Padding="10,2" FontSize="12">
+                <Button Grid.Column="3" Content="ログ" Padding="10,1,10,2" FontSize="12"
+                        MinHeight="24">
                     <Button.Flyout>
                         <Flyout>
                             <StackPanel x:Name="ActivityPanel" Width="560" Spacing="8">
