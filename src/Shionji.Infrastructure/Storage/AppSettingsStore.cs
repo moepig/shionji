@@ -8,6 +8,9 @@ public sealed class AppSettings
     /// <summary>session-manager-plugin.exe の上書きパス。null なら自動探索。</summary>
     public string? PluginPath { get; set; }
 
+    /// <summary>AWS API のエンドポイント上書き (VPC エンドポイントなど)。null なら通常のリージョン解決。</summary>
+    public string? AwsEndpointOverride { get; set; }
+
     /// <summary>ウィンドウを閉じたときにタスクトレイへ格納する。</summary>
     public bool MinimizeToTray { get; set; } = true;
 }

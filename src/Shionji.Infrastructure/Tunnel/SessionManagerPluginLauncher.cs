@@ -15,9 +15,11 @@ namespace Shionji.Infrastructure.Tunnel;
 /// </summary>
 public sealed class SessionManagerPluginLauncher(
     AwsClientFactory clientFactory,
-    SessionManagerPluginLocator locator) : ITunnelLauncher
+    SessionManagerPluginLocator locator,
+    ILocalPortProbe portProbe) : ITunnelLauncher
 {
     private static readonly TimeSpan EstablishTimeout = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan ListenPollInterval = TimeSpan.FromMilliseconds(100);
 
     public async Task<Result<ITunnelHandle, ErrorDetail>> LaunchAsync(
         TunnelPlan plan, CancellationToken cancellationToken = default)
@@ -70,16 +72,12 @@ public sealed class SessionManagerPluginLauncher(
         var handle = new TunnelProcessHandle(
             process, plan.LocalPort, ct => TerminateSessionAsync(plan.Aws, session.SessionId, ct));
 
-        var established = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var exited = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
         process.OutputDataReceived += (_, e) =>
         {
-            if (e.Data is null)
-                return;
-            handle.HandleOutput(e.Data, isError: false);
-            if (IsEstablishedLine(e.Data))
-                established.TrySetResult();
+            if (e.Data is not null)
+                handle.HandleOutput(e.Data, isError: false);
         };
         process.ErrorDataReceived += (_, e) =>
         {
@@ -107,15 +105,11 @@ public sealed class SessionManagerPluginLauncher(
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
 
-        var completed = await Task.WhenAny(
-            established.Task,
-            exited.Task,
-            Task.Delay(EstablishTimeout, cancellationToken));
-
-        if (completed == established.Task)
+        var established = await WaitForListeningAsync(plan.LocalPort, exited.Task, cancellationToken);
+        if (established)
             return Result<ITunnelHandle, ErrorDetail>.Success(handle);
 
-        if (completed == exited.Task)
+        if (exited.Task.IsCompleted)
         {
             var error = new ErrorDetail(
                 FailurePhase.Plugin,
@@ -134,10 +128,30 @@ public sealed class SessionManagerPluginLauncher(
             $"{EstablishTimeout.TotalSeconds:0} 秒以内にローカルポートが開きませんでした。"));
     }
 
-    /// <summary>AWS CLI の plugin が出力する開通メッセージ。</summary>
-    private static bool IsEstablishedLine(string line) =>
-        line.Contains("opened for sessionId", StringComparison.OrdinalIgnoreCase) ||
-        line.Contains("Waiting for connections", StringComparison.OrdinalIgnoreCase);
+    /// <summary>
+    /// ローカルポートが実際に listen 状態になるのを待つ。
+    /// plugin の出力文言はバージョンで変わりうるため、確立の判定はポートの状態で行う。
+    /// </summary>
+    private async Task<bool> WaitForListeningAsync(
+        Port localPort, Task exited, CancellationToken cancellationToken)
+    {
+        var deadline = DateTime.UtcNow + EstablishTimeout;
+        while (DateTime.UtcNow < deadline)
+        {
+            if (portProbe.IsListening(localPort))
+                return true;
+
+            if (exited.IsCompleted)
+            {
+                // 終了直前に開通していた可能性を最後に一度だけ確認する
+                return portProbe.IsListening(localPort);
+            }
+
+            await Task.Delay(ListenPollInterval, cancellationToken);
+        }
+
+        return false;
+    }
 
     private async Task TerminateSessionAsync(AwsContext aws, string sessionId, CancellationToken cancellationToken)
     {

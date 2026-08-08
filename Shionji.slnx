@@ -11,7 +11,9 @@
   <Folder Name="/tests/">
     <Project Path="tests/Shionji.Application.Tests/Shionji.Application.Tests.csproj" />
     <Project Path="tests/Shionji.Domain.Tests/Shionji.Domain.Tests.csproj" />
+    <Project Path="tests/Shionji.FakePlugin/Shionji.FakePlugin.csproj" />
     <Project Path="tests/Shionji.Infrastructure.Tests/Shionji.Infrastructure.Tests.csproj" />
+    <Project Path="tests/Shionji.IntegrationTests/Shionji.IntegrationTests.csproj" />
     <Project Path="tests/Shionji.Presentation.Tests/Shionji.Presentation.Tests.csproj" />
     <Project Path="tests/Shionji.TestSupport/Shionji.TestSupport.csproj" />
   </Folder>
