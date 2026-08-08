@@ -9,6 +9,19 @@ using Shionji.Domain.ValueObjects;
 
 namespace Shionji.Application;
 
+/// <summary>切断がどの操作によって起きたか。監査ログに残す。</summary>
+public enum StopReason
+{
+    /// <summary>利用者が切断を指示した。</summary>
+    UserRequest,
+
+    /// <summary>設定の保存 / 削除に伴う切断。</summary>
+    ConfigChanged,
+
+    /// <summary>アプリ終了に伴う切断。</summary>
+    ApplicationExit,
+}
+
 public sealed class SessionChangedEventArgs(ConfigId configId, SessionState state, Port? localPort) : EventArgs
 {
     public ConfigId ConfigId { get; } = configId;
@@ -46,6 +59,12 @@ public sealed class TunnelSupervisor(
         public TunnelSession Session { get; set; } = new(config.Id, config.Options.AutoReconnect);
         public ITunnelHandle? Handle { get; set; }
         public CancellationTokenSource? OpCts { get; set; }
+
+        /// <summary>接続試行ごとの相関 ID。1 回の試行に属するログ行を突き合わせるために使う。</summary>
+        public string AttemptId { get; set; } = string.Empty;
+
+        /// <summary>切断時に接続時間を算出するための確立時刻。</summary>
+        public DateTimeOffset? EstablishedAt { get; set; }
 
         /// <summary>Start / Stop のたびに進む世代番号。旧世代の進行中処理は状態を変更しない。</summary>
         public int Epoch { get; set; }
@@ -90,6 +109,8 @@ public sealed class TunnelSupervisor(
             ctx.Session = new TunnelSession(config.Id, config.Options.AutoReconnect);
             ctx.Session.RequestConnect();
             ctx.Epoch++;
+            ctx.AttemptId = Guid.NewGuid().ToString("N")[..8];
+            ctx.EstablishedAt = null;
             epoch = ctx.Epoch;
             ctx.OpCts?.Dispose();
             ctx.OpCts = new CancellationTokenSource();
@@ -102,7 +123,7 @@ public sealed class TunnelSupervisor(
         await RunSessionAsync(ctx, epoch, linked.Token);
     }
 
-    public async Task StopAsync(ConfigId id)
+    public async Task StopAsync(ConfigId id, StopReason reason = StopReason.UserRequest)
     {
         SessionContext? ctx;
         ITunnelHandle? handle = null;
@@ -112,6 +133,7 @@ public sealed class TunnelSupervisor(
             if (!_sessions.TryGetValue(id, out ctx))
                 return;
 
+            LogStopRequested(ctx, reason);
             switch (ctx.Session.State)
             {
                 case SessionState.Resolving or SessionState.Starting or SessionState.Established:
@@ -159,7 +181,7 @@ public sealed class TunnelSupervisor(
         }
     }
 
-    public async Task StopAllAsync()
+    public async Task StopAllAsync(StopReason reason = StopReason.ApplicationExit)
     {
         ConfigId[] ids;
         lock (_sync)
@@ -168,10 +190,37 @@ public sealed class TunnelSupervisor(
         }
 
         foreach (var id in ids)
-            await StopAsync(id);
+            await StopAsync(id, reason);
     }
 
     public ValueTask DisposeAsync() => new(StopAllAsync());
+
+    /// <summary>切断がどの操作によるものかと、接続していた時間を記録する。</summary>
+    private void LogStopRequested(SessionContext ctx, StopReason reason)
+    {
+        if (ctx.Session.State is not (SessionState.Resolving or SessionState.Starting
+            or SessionState.Established or SessionState.Reconnecting))
+        {
+            return;
+        }
+
+        _log.Audit(LogLevel.Information, $"{ctx.Config.Name.Value}: 切断します ({ReasonLabel(reason)})",
+            ("試行", ctx.AttemptId),
+            ("設定", ctx.Config.Name.Value),
+            ("理由", ReasonLabel(reason)),
+            ("セッション", ctx.Handle?.SessionId),
+            ("接続秒", ctx.EstablishedAt is { } since
+                ? $"{(clock.UtcNow - since).TotalSeconds:0}"
+                : null));
+    }
+
+    private static string ReasonLabel(StopReason reason) => reason switch
+    {
+        StopReason.UserRequest => "利用者操作",
+        StopReason.ConfigChanged => "設定変更",
+        StopReason.ApplicationExit => "アプリ終了",
+        _ => reason.ToString(),
+    };
 
     /// <summary>
     /// 接続試行と、失敗時の再接続サイクル (バックオフ待機 → 再試行) を回す。
@@ -217,6 +266,8 @@ public sealed class TunnelSupervisor(
                 {
                     if (ctx.Epoch != epoch || ctx.Session.State is not SessionState.Reconnecting)
                         return;
+                    // 再試行は別の試行として追えるよう相関 ID を振り直す
+                    ctx.AttemptId = Guid.NewGuid().ToString("N")[..8];
                     ctx.Session.RetryDue();
                 }
 
@@ -231,7 +282,7 @@ public sealed class TunnelSupervisor(
 
     private void AbortOnUnexpectedFailure(SessionContext ctx, int epoch, Exception exception)
     {
-        _log.LogError(exception, "{Config}: セッション処理で予期しない例外", ctx.Config.Name.Value);
+        _log.LogError(exception, "{Config}: 内部エラーが発生しました 試行={Attempt}", ctx.Config.Name.Value, ctx.AttemptId);
         lock (_sync)
         {
             if (ctx.Epoch != epoch)
@@ -281,7 +332,15 @@ public sealed class TunnelSupervisor(
         }
 
         if (destinationOutcome is not null || gatewayOutcome is not null)
+        {
             resolutionService.Publish(config, destinationOutcome, gatewayOutcome);
+
+            // どの検索条件がどの実リソースに解決されたかを証跡として残す
+            _log.Audit(LogLevel.Information, $"{config.Name.Value}: リソースを解決しました",
+                [("試行", ctx.AttemptId), ("設定", config.Name.Value),
+                 .. ResolvedDetails("転送先", destinationResource),
+                 .. ResolvedDetails("踏み台", gatewayResource)]);
+        }
 
         Port localPort;
         switch (config.LocalPort)
@@ -354,6 +413,7 @@ public sealed class TunnelSupervisor(
             else
             {
                 ctx.Handle = handle;
+                ctx.EstablishedAt = clock.UtcNow;
                 handle.Exited += (_, e) => OnTunnelExited(ctx, epoch, e.Error);
                 handle.LogEmitted += (_, e) =>
                     SessionLog?.Invoke(this, new SessionLogEventArgs(config.Id, e.Line, e.IsError));
@@ -391,7 +451,19 @@ public sealed class TunnelSupervisor(
                     return;
 
                 handle = ctx.Handle;
+                _log.Audit(LogLevel.Warning, $"{ctx.Config.Name.Value}: 接続が切れました",
+                    ("試行", ctx.AttemptId),
+                    ("設定", ctx.Config.Name.Value),
+                    ("セッション", handle?.SessionId),
+                    ("フェーズ", error.Phase),
+                    ("コード", error.Code),
+                    ("原因", error.Message),
+                    ("接続秒", ctx.EstablishedAt is { } since
+                        ? $"{(clock.UtcNow - since).TotalSeconds:0}"
+                        : null));
+
                 ctx.Handle = null;
+                ctx.EstablishedAt = null;
                 ctx.Session.ExitedUnexpectedly(error);
                 opToken = ctx.OpCts?.Token ?? CancellationToken.None;
             }
@@ -434,6 +506,7 @@ public sealed class TunnelSupervisor(
             {
                 if (ctx.Epoch != epoch || ctx.Session.State is not SessionState.Reconnecting)
                     return;
+                ctx.AttemptId = Guid.NewGuid().ToString("N")[..8];
                 ctx.Session.RetryDue();
             }
 
@@ -478,38 +551,114 @@ public sealed class TunnelSupervisor(
         }
     }
 
-    /// <summary>状態遷移をそのまま画面のステータスバーに出せる文言で記録する。</summary>
-    private void LogStateChange(string name, SessionState state)
+    /// <summary>
+    /// 状態遷移を記録する。要約は画面のステータスバーへ、
+    /// 詳細フィールド (どの経路でどこへ繋いだか) はテキストログへ展開される。
+    /// </summary>
+    private void LogStateChange(SessionContext ctx, SessionState state)
     {
+        var name = ctx.Config.Name.Value;
+        var aws = $"{ctx.Config.Aws.Profile.Value}@{ctx.Config.Aws.Region.Value}";
+
         switch (state)
         {
             case SessionState.Resolving:
-                _log.LogInformation("{Config}: リソースを解決しています…", name);
+                _log.Audit(LogLevel.Information, $"{name}: リソースを解決しています…",
+                    ("試行", ctx.AttemptId), ("設定", name), ("プロファイル", aws));
                 break;
-            case SessionState.Starting:
-                _log.LogInformation("{Config}: セッションを開始しています…", name);
+
+            case SessionState.Starting starting:
+                _log.Audit(LogLevel.Information, $"{name}: セッションを開始しています…",
+                    PlanDetails(ctx, starting.Plan));
                 break;
+
             case SessionState.Established established:
-                _log.LogInformation(
-                    "{Config}: localhost:{Port} で接続しました", name, established.Plan.LocalPort.Value);
+                _log.Audit(LogLevel.Information,
+                    $"{name}: localhost:{established.Plan.LocalPort.Value} で接続しました",
+                    [.. PlanDetails(ctx, established.Plan), ("セッション", ctx.Handle?.SessionId)]);
                 break;
+
             case SessionState.Closing:
-                _log.LogInformation("{Config}: 切断しています…", name);
+                _log.Audit(LogLevel.Information, $"{name}: 切断しています…",
+                    ("試行", ctx.AttemptId), ("設定", name));
                 break;
+
             case SessionState.Idle:
-                _log.LogInformation("{Config}: 切断しました", name);
+                _log.Audit(LogLevel.Information, $"{name}: 切断しました",
+                    ("試行", ctx.AttemptId), ("設定", name));
                 break;
+
             case SessionState.Reconnecting reconnecting:
-                _log.LogWarning(
-                    "{Config}: 切断されました。{Delay} 秒後に再接続します ({Attempt} 回目)",
-                    name, reconnecting.Delay.TotalSeconds, reconnecting.Attempt);
+                _log.Audit(LogLevel.Warning,
+                    $"{name}: 切断されました。{reconnecting.Delay.TotalSeconds:0} 秒後に再接続します ({reconnecting.Attempt} 回目)",
+                    ("試行", ctx.AttemptId),
+                    ("設定", name),
+                    ("再試行回数", reconnecting.Attempt),
+                    ("待機秒", reconnecting.Delay.TotalSeconds),
+                    ("フェーズ", reconnecting.Cause.Phase),
+                    ("コード", reconnecting.Cause.Code),
+                    ("原因", reconnecting.Cause.Message));
                 break;
+
             case SessionState.Failed failed:
-                _log.LogError(
-                    "{Config}: 失敗しました [{Phase}] {Message}",
-                    name, failed.Error.Phase, failed.Error.Message);
+                _log.Audit(LogLevel.Error, $"{name}: 失敗: {failed.Error.Message}",
+                    ("試行", ctx.AttemptId),
+                    ("設定", name),
+                    ("フェーズ", failed.Error.Phase),
+                    ("コード", failed.Error.Code),
+                    ("プロファイル", aws));
                 break;
         }
+    }
+
+    /// <summary>解決結果の証跡 (表示名だけでなく実リソースの識別子まで)。</summary>
+    private static (string, object?)[] ResolvedDetails(string label, ResolvedResource? resource)
+    {
+        if (resource is null)
+            return [];
+
+        var endpoint = resource.Host is { } host
+            ? $"{host.Value}{(resource.DefaultPort is { } port ? $":{port.Value}" : string.Empty)}"
+            : null;
+
+        return
+        [
+            ($"{label}", resource.DisplayName),
+            ($"{label}ID", resource.Id.Value),
+            ($"{label}エンドポイント", endpoint),
+            ($"{label}SSM", resource.SsmTarget?.Value),
+        ];
+    }
+
+    /// <summary>監査に必要な接続の事実。</summary>
+    private static (string, object?)[] PlanDetails(SessionContext ctx, TunnelPlan plan)
+    {
+        var destination = plan.Mode switch
+        {
+            SessionMode.RemoteHostForward remote => $"{remote.Host.Value}:{remote.RemotePort.Value}",
+            SessionMode.DirectForward direct => $"{plan.Target.Value}:{direct.RemotePort.Value}",
+            _ => null,
+        };
+
+        var gateway = ctx.Config.Gateway switch
+        {
+            GatewaySpec.Direct => "直接",
+            GatewaySpec.Ec2 => $"EC2:{plan.Target.Value}",
+            GatewaySpec.Ecs => $"ECS:{plan.Target.Value}",
+            _ => plan.Target.Value,
+        };
+
+        return
+        [
+            ("試行", ctx.AttemptId),
+            ("設定", ctx.Config.Name.Value),
+            ("転送先", destination),
+            ("経路", gateway),
+            ("SSMターゲット", plan.Target.Value),
+            ("文書", plan.Mode.DocumentName),
+            ("プロファイル", $"{plan.Aws.Profile.Value}@{plan.Aws.Region.Value}"),
+            ("ローカル", $"localhost:{plan.LocalPort.Value}"),
+        ];
     }
 
     private void Emit(SessionContext ctx)
@@ -522,7 +671,7 @@ public sealed class TunnelSupervisor(
             localPort = state is SessionState.Established established ? established.Plan.LocalPort : null;
         }
 
-        LogStateChange(ctx.Config.Name.Value, state);
+        LogStateChange(ctx, state);
         SessionChanged?.Invoke(this, new SessionChangedEventArgs(ctx.Config.Id, state, localPort));
     }
 }

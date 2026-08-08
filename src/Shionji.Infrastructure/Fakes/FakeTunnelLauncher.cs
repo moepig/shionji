@@ -40,6 +40,8 @@ public sealed class FakeTunnelLauncher(FakeSsoState? ssoState = null) : ITunnelL
 
         public Port LocalPort { get; } = localPort;
 
+        public string SessionId { get; } = $"s-demo{Random.Shared.Next(100000, 999999)}";
+
         public event EventHandler<TunnelExitedEventArgs>? Exited;
         public event EventHandler<TunnelLogEventArgs>? LogEmitted;
 

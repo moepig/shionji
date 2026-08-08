@@ -70,7 +70,8 @@ public sealed class SessionManagerPluginLauncher(
 
         var process = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
         var handle = new TunnelProcessHandle(
-            process, plan.LocalPort, ct => TerminateSessionAsync(plan.Aws, session.SessionId, ct));
+            process, plan.LocalPort, session.SessionId,
+            ct => TerminateSessionAsync(plan.Aws, session.SessionId, ct));
 
         var exited = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 

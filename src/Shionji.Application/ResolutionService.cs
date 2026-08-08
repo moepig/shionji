@@ -88,29 +88,53 @@ public sealed class ResolutionService(
                 ++_sequence);
         }
 
-        LogOutcome(config.Name.Value, "転送先", destination);
-        LogOutcome(config.Name.Value, "踏み台", gateway);
+        LogOutcome(config, "転送先", destination);
+        LogOutcome(config, "踏み台", gateway);
         ViewChanged?.Invoke(this, config.Id);
     }
 
-    private void LogOutcome(string name, string label, ResolutionOutcome? outcome)
+    private void LogOutcome(ForwardingConfig config, string label, ResolutionOutcome? outcome)
     {
+        var name = config.Name.Value;
+        var aws = $"{config.Aws.Profile.Value}@{config.Aws.Region.Value}";
+
         switch (outcome)
         {
             case ResolutionOutcome.Resolved resolved:
-                _log.LogInformation(
-                    "{Config}: {Label}を {Resource} に解決しました", name, label, resolved.Resource.DisplayName);
+                _log.Audit(LogLevel.Information, $"{name}: {label}を {resolved.Resource.DisplayName} に解決しました",
+                    ("設定", name),
+                    ("種別", label),
+                    ("リソース", resolved.Resource.DisplayName),
+                    ("リソースID", resolved.Resource.Id.Value),
+                    ("エンドポイント", resolved.Resource.Host?.Value),
+                    ("既定ポート", resolved.Resource.DefaultPort?.Value),
+                    ("SSMターゲット", resolved.Resource.SsmTarget?.Value),
+                    ("プロファイル", aws));
                 break;
+
             case ResolutionOutcome.NotFound:
-                _log.LogWarning("{Config}: 条件に一致する{Label}が見つかりません", name, label);
+                _log.Audit(LogLevel.Warning, $"{name}: 条件に一致する{label}が見つかりません",
+                    ("設定", name), ("種別", label), ("プロファイル", aws));
                 break;
+
             case ResolutionOutcome.Ambiguous ambiguous:
-                _log.LogWarning(
-                    "{Config}: {Label}が {Count} 件一致しました。条件を絞り込んでください",
-                    name, label, ambiguous.Candidates.Count);
+                _log.Audit(LogLevel.Warning,
+                    $"{name}: {label}が {ambiguous.Candidates.Count} 件一致しました。条件を絞り込んでください",
+                    ("設定", name),
+                    ("種別", label),
+                    ("候補数", ambiguous.Candidates.Count),
+                    ("候補", string.Join(", ", ambiguous.Candidates.Select(c => $"{c.DisplayName}[{c.Id.Value}]"))),
+                    ("プロファイル", aws));
                 break;
+
             case ResolutionOutcome.Failed failed:
-                _log.LogError("{Config}: {Label}の解決に失敗しました - {Message}", name, label, failed.Error.Message);
+                _log.Audit(LogLevel.Error, $"{name}: {label}の解決に失敗しました",
+                    ("設定", name),
+                    ("種別", label),
+                    ("フェーズ", failed.Error.Phase),
+                    ("コード", failed.Error.Code),
+                    ("原因", failed.Error.Message),
+                    ("プロファイル", aws));
                 break;
         }
     }

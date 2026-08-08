@@ -22,6 +22,12 @@ public interface ITunnelHandle : IAsyncDisposable
     /// <summary>実際に待ち受けているローカルポート。</summary>
     Port LocalPort { get; }
 
+    /// <summary>
+    /// SSM のセッション ID。CloudTrail や ssm:DescribeSessions と突き合わせるための鍵になるため、
+    /// 監査ログに残す。
+    /// </summary>
+    string SessionId { get; }
+
     /// <summary>トンネルが予期せず終了した (StopAsync による停止では発火しない)。</summary>
     event EventHandler<TunnelExitedEventArgs>? Exited;
 

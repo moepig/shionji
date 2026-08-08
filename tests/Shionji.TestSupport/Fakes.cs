@@ -46,6 +46,7 @@ public sealed class FakeCatalog : IResourceCatalog
 public sealed class FakeHandle(Port localPort) : ITunnelHandle
 {
     public Port LocalPort { get; } = localPort;
+    public string SessionId { get; } = "s-test0123456789";
     public bool Stopped { get; private set; }
 
     public event EventHandler<TunnelExitedEventArgs>? Exited;

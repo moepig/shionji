@@ -11,6 +11,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\Shionji.Application\Shionji.Application.csproj" />
     <ProjectReference Include="..\..\src\Shionji.Infrastructure\Shionji.Infrastructure.csproj" />
   </ItemGroup>
 

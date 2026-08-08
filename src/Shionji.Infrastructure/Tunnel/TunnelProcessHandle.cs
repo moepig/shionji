@@ -9,12 +9,15 @@ namespace Shionji.Infrastructure.Tunnel;
 internal sealed class TunnelProcessHandle(
     Process process,
     Port localPort,
+    string sessionId,
     Func<CancellationToken, Task> terminateSession) : ITunnelHandle
 {
     private int _stopped;
     private volatile string? _lastErrorLine;
 
     public Port LocalPort { get; } = localPort;
+
+    public string SessionId { get; } = sessionId;
 
     public event EventHandler<TunnelExitedEventArgs>? Exited;
     public event EventHandler<TunnelLogEventArgs>? LogEmitted;

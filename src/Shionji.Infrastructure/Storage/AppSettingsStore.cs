@@ -13,6 +13,9 @@ public sealed class AppSettings
 
     /// <summary>ウィンドウを閉じたときにタスクトレイへ格納する。</summary>
     public bool MinimizeToTray { get; set; } = true;
+
+    /// <summary>ログファイルの保持日数。監査要件に応じて延ばす。</summary>
+    public int LogRetentionDays { get; set; } = 30;
 }
 
 /// <summary>%APPDATA%/Shionji/appsettings.json の読み書き。</summary>

@@ -14,6 +14,14 @@ public sealed class StartupService(
 
     public async Task RunAsync(CancellationToken cancellationToken = default)
     {
+        // 監査時に「誰のどの端末での操作か」を辿れるよう、実行環境を最初に残す
+        _log.Audit(LogLevel.Information, "Shionji を起動しました",
+            ("版", typeof(StartupService).Assembly.GetName().Version?.ToString()),
+            ("利用者", $"{Environment.UserDomainName}\\{Environment.UserName}"),
+            ("端末", Environment.MachineName),
+            ("プロセス", Environment.ProcessId),
+            ("OS", Environment.OSVersion.VersionString));
+
         await configService.LoadAsync(cancellationToken);
 
         var configs = configService.Configs;

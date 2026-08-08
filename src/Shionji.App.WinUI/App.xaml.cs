@@ -67,6 +67,10 @@ public partial class App : Microsoft.UI.Xaml.Application
 
         services.AddSingleton<IClock, SystemClock>();
 
+        var settingsStore = new AppSettingsStore(AppSettingsStore.DefaultPath);
+        settingsStore.Load();
+        services.AddSingleton(settingsStore);
+
         // ログはファイルと画面のステータスバーの両方へ流す
         var logDirectory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Shionji", "logs");
@@ -76,16 +80,12 @@ public partial class App : Microsoft.UI.Xaml.Application
         services.AddLogging(builder =>
         {
             builder.SetMinimumLevel(LogLevel.Information);
-            builder.AddProvider(new FileLoggerProvider(logDirectory));
+            builder.AddProvider(new FileLoggerProvider(logDirectory, settingsStore.Current.LogRetentionDays));
             builder.AddProvider(new ActivityLogProvider(activityLog));
         });
 
         services.AddSingleton<IRetryScheduler, TaskDelayRetryScheduler>();
         services.AddSingleton<ILocalPortProbe, TcpLocalPortProbe>();
-
-        var settingsStore = new AppSettingsStore(AppSettingsStore.DefaultPath);
-        settingsStore.Load();
-        services.AddSingleton(settingsStore);
 
         if (IsDemoMode)
         {
