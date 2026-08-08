@@ -101,7 +101,7 @@ public sealed class ResolutionService(
         switch (outcome)
         {
             case ResolutionOutcome.Resolved resolved:
-                _log.Audit(LogLevel.Information, $"{name}: {label}を {resolved.Resource.DisplayName} に解決しました",
+                _log.Audit(LogLevel.Information, $"{name}: {label}を {resolved.Resource.DisplayName} に特定しました",
                     ("設定", name),
                     ("種別", label),
                     ("リソース", resolved.Resource.DisplayName),
@@ -128,7 +128,7 @@ public sealed class ResolutionService(
                 break;
 
             case ResolutionOutcome.Failed failed:
-                _log.Audit(LogLevel.Error, $"{name}: {label}の解決に失敗しました",
+                _log.Audit(LogLevel.Error, $"{name}: {label}の自動検索に失敗しました",
                     ("設定", name),
                     ("種別", label),
                     ("フェーズ", failed.Error.Phase),

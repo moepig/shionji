@@ -36,7 +36,7 @@ public class AuditLogTests
         // ステータスバーに出るのは要約だけで、詳細は混ざらない
         var summaries = harness.Activity.Recent.Select(e => e.Message).ToList();
         await Assert.That(summaries).Contains("api-db: localhost:13306 で接続しました");
-        await Assert.That(summaries).Contains("api-db: リソースを解決しています…");
+        await Assert.That(summaries).Contains("api-db: リソースを自動検索しています…");
         await Assert.That(summaries.Any(s => s.Contains('='))).IsFalse();
         await Assert.That(summaries.All(s => s.Length <= 60)).IsTrue();
     }
@@ -61,7 +61,7 @@ public class AuditLogTests
 
         await harness.Supervisor.StartAsync(TestData.QueryConfig());
 
-        var resolved = harness.WrittenWith("リソースを解決しました");
+        var resolved = harness.WrittenWith("リソースを特定しました");
         await Assert.That(resolved.Detail("転送先")).IsEqualTo("cache-1");
         await Assert.That(resolved.Detail("転送先ID")).IsEqualTo("cache-1");
         await Assert.That(resolved.Detail("転送先エンドポイント")).IsEqualTo("redis.prod.example.com:6379");
@@ -75,7 +75,7 @@ public class AuditLogTests
 
         await harness.Resolution.RefreshAsync(TestData.QueryConfig());
 
-        var resolved = harness.WrittenWith("転送先を cache-1 に解決しました");
+        var resolved = harness.WrittenWith("転送先を cache-1 に特定しました");
         await Assert.That(resolved.Detail("リソースID")).IsEqualTo("cache-1");
         await Assert.That(resolved.Detail("エンドポイント")).IsEqualTo("redis.prod.example.com");
         await Assert.That(resolved.Detail("プロファイル")).IsEqualTo("dev@ap-northeast-1");

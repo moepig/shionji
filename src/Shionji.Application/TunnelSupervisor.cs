@@ -336,7 +336,7 @@ public sealed class TunnelSupervisor(
             resolutionService.Publish(config, destinationOutcome, gatewayOutcome);
 
             // どの検索条件がどの実リソースに解決されたかを証跡として残す
-            _log.Audit(LogLevel.Information, $"{config.Name.Value}: リソースを解決しました",
+            _log.Audit(LogLevel.Information, $"{config.Name.Value}: リソースを特定しました",
                 [("試行", ctx.AttemptId), ("設定", config.Name.Value),
                  .. ResolvedDetails("転送先", destinationResource),
                  .. ResolvedDetails("踏み台", gatewayResource)]);
@@ -563,7 +563,7 @@ public sealed class TunnelSupervisor(
         switch (state)
         {
             case SessionState.Resolving:
-                _log.Audit(LogLevel.Information, $"{name}: リソースを解決しています…",
+                _log.Audit(LogLevel.Information, $"{name}: リソースを自動検索しています…",
                     ("試行", ctx.AttemptId), ("設定", name), ("プロファイル", aws));
                 break;
 
