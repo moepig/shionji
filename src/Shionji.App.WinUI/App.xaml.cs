@@ -46,8 +46,10 @@ public partial class App : Microsoft.UI.Xaml.Application
 
         if (IsDemoMode)
         {
+            services.AddSingleton<FakeSsoState>();
             services.AddSingleton<IResourceCatalog, FakeResourceCatalog>();
             services.AddSingleton<ITunnelLauncher, FakeTunnelLauncher>();
+            services.AddSingleton<ISsoLoginService, FakeSsoLoginService>();
             services.AddSingleton<IForwardingConfigRepository>(
                 _ => new InMemoryConfigRepository([.. DemoData.Configs()]));
         }
@@ -57,6 +59,7 @@ public partial class App : Microsoft.UI.Xaml.Application
             services.AddSingleton<IResourceCatalog, AwsResourceCatalog>();
             services.AddSingleton(new SessionManagerPluginLocator(() => settingsStore.Current.PluginPath));
             services.AddSingleton<ITunnelLauncher, SessionManagerPluginLauncher>();
+            services.AddSingleton<ISsoLoginService, SsoLoginService>();
             services.AddSingleton<IForwardingConfigRepository>(
                 _ => new JsonForwardingConfigRepository(JsonForwardingConfigRepository.DefaultPath));
         }

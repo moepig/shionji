@@ -11,14 +11,14 @@ namespace Shionji.Infrastructure.Fakes;
 /// ambiguous → 複数一致、notfound → 見つからない、denied → 権限エラー。
 /// プロファイル名 expired-sso は SSO トークン切れを再現する。
 /// </summary>
-public sealed class FakeResourceCatalog(IClock clock) : IResourceCatalog
+public sealed class FakeResourceCatalog(IClock clock, FakeSsoState? ssoState = null) : IResourceCatalog
 {
     public async Task<ResolutionOutcome> ResolveAsync(
         AwsContext aws, ResourceQuery query, FailurePhase phase, CancellationToken cancellationToken = default)
     {
         await Task.Delay(Random.Shared.Next(400, 900), cancellationToken);
 
-        if (aws.Profile.Value == "expired-sso")
+        if (aws.Profile.Value == "expired-sso" && ssoState?.IsLoggedIn(aws.Profile.Value) != true)
         {
             return new ResolutionOutcome.Failed(new ErrorDetail(
                 FailurePhase.Credentials,

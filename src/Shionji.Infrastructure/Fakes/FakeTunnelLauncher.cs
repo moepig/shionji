@@ -11,14 +11,14 @@ namespace Shionji.Infrastructure.Fakes;
 /// 転送先ホストに flaky を含むトンネルは確立の約 10 秒後に疑似切断する (自動再接続のデモ)。
 /// プロファイル expired-sso は資格情報エラーを再現する。
 /// </summary>
-public sealed class FakeTunnelLauncher : ITunnelLauncher
+public sealed class FakeTunnelLauncher(FakeSsoState? ssoState = null) : ITunnelLauncher
 {
     public async Task<Result<ITunnelHandle, ErrorDetail>> LaunchAsync(
         TunnelPlan plan, CancellationToken cancellationToken = default)
     {
         await Task.Delay(Random.Shared.Next(1000, 1800), cancellationToken);
 
-        if (plan.Aws.Profile.Value == "expired-sso")
+        if (plan.Aws.Profile.Value == "expired-sso" && ssoState?.IsLoggedIn(plan.Aws.Profile.Value) != true)
         {
             return Result<ITunnelHandle, ErrorDetail>.Failure(new ErrorDetail(
                 FailurePhase.Credentials,

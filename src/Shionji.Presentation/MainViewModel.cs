@@ -2,6 +2,8 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Shionji.Application;
+using Shionji.Domain.Ports;
+using Shionji.Domain.Resolution;
 using Shionji.Domain.Tunneling;
 using Shionji.Domain.ValueObjects;
 
@@ -16,6 +18,7 @@ public sealed partial class MainViewModel : ObservableObject
     private readonly IUiDispatcher _dispatcher;
     private readonly INotificationService _notifications;
     private readonly IClipboardService _clipboard;
+    private readonly ISsoLoginService _ssoLogin;
 
     private readonly Dictionary<ConfigId, ConfigRowViewModel> _rowsById = [];
     private readonly HashSet<ConfigId> _established = [];
@@ -38,7 +41,8 @@ public sealed partial class MainViewModel : ObservableObject
         ResolutionService resolution,
         IUiDispatcher dispatcher,
         INotificationService notifications,
-        IClipboardService clipboard)
+        IClipboardService clipboard,
+        ISsoLoginService ssoLogin)
     {
         _configService = configService;
         _supervisor = supervisor;
@@ -46,6 +50,7 @@ public sealed partial class MainViewModel : ObservableObject
         _dispatcher = dispatcher;
         _notifications = notifications;
         _clipboard = clipboard;
+        _ssoLogin = ssoLogin;
 
         _configService.ConfigsChanged += (_, _) => _dispatcher.Post(RebuildRows);
         _supervisor.SessionChanged += (_, e) => _dispatcher.Post(() => OnSessionChanged(e));
@@ -97,6 +102,31 @@ public sealed partial class MainViewModel : ObservableObject
     {
         if (_configService.Find(id) is { } config)
             await _resolution.RefreshAsync(config);
+    }
+
+    /// <summary>
+    /// ブラウザ承認込みの SSO ログイン。成功したら再解決し、
+    /// 資格情報エラーで失敗していたセッションは接続をやり直す。
+    /// </summary>
+    internal async Task<ErrorDetail?> SsoLoginAsync(ConfigId id)
+    {
+        if (_configService.Find(id) is not { } config)
+            return null;
+
+        var error = await _ssoLogin.LoginAsync(config.Aws.Profile);
+        if (error is not null)
+            return error;
+
+        var retryConnect = _supervisor.GetState(id) is SessionState.Failed
+        {
+            Error.Phase: FailurePhase.Credentials,
+        };
+
+        await _resolution.RefreshAsync(config);
+        if (retryConnect)
+            await _supervisor.StartAsync(config);
+
+        return null;
     }
 
     internal Task SaveConfigAsync(Domain.Configuration.ForwardingConfig config) =>
