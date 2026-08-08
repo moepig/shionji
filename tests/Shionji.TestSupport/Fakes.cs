@@ -29,12 +29,17 @@ public sealed class FakeCatalog : IResourceCatalog
     public int CallCount { get; private set; }
     public List<ResourceQuery> Queries { get; } = [];
 
-    public Task<ResolutionOutcome> ResolveAsync(
+    /// <summary>解決を任意のタイミングまで遅らせるゲート。停止との競合を検証するために使う。</summary>
+    public Func<Task>? Gate { get; set; }
+
+    public async Task<ResolutionOutcome> ResolveAsync(
         AwsContext aws, ResourceQuery query, FailurePhase phase, CancellationToken cancellationToken = default)
     {
         CallCount++;
         Queries.Add(query);
-        return Task.FromResult(Handler(aws, query));
+        if (Gate is { } gate)
+            await gate();
+        return Handler(aws, query);
     }
 }
 
@@ -69,18 +74,24 @@ public sealed class FakeLauncher : ITunnelLauncher
     public List<TunnelPlan> Plans { get; } = [];
     public List<FakeHandle> Handles { get; } = [];
 
-    public Task<Result<ITunnelHandle, ErrorDetail>> LaunchAsync(
+    /// <summary>起動完了を任意のタイミングまで遅らせるゲート。停止との競合を検証するために使う。</summary>
+    public Func<Task>? Gate { get; set; }
+
+    public async Task<Result<ITunnelHandle, ErrorDetail>> LaunchAsync(
         TunnelPlan plan, CancellationToken cancellationToken = default)
     {
         LaunchCount++;
         Plans.Add(plan);
 
+        if (Gate is { } gate)
+            await gate();
+
         if (Handler is { } handler)
-            return Task.FromResult(handler(plan));
+            return handler(plan);
 
         var handle = new FakeHandle(plan.LocalPort);
         Handles.Add(handle);
-        return Task.FromResult(Result<ITunnelHandle, ErrorDetail>.Success(handle));
+        return Result<ITunnelHandle, ErrorDetail>.Success(handle);
     }
 
     public FakeHandle LastHandle => Handles[^1];

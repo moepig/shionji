@@ -21,4 +21,8 @@
     <ProjectReference Include="..\Shionji.Domain\Shionji.Domain.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Shionji.IntegrationTests" />
+  </ItemGroup>
+
 </Project>

@@ -96,7 +96,7 @@ public partial class App : Microsoft.UI.Xaml.Application
             services.AddSingleton<IResourceCatalog, AwsResourceCatalog>();
             services.AddSingleton(new SessionManagerPluginLocator(() => settingsStore.Current.PluginPath));
             services.AddSingleton<ITunnelLauncher, SessionManagerPluginLauncher>();
-            services.AddSingleton<ISsoLoginService, SsoLoginService>();
+            services.AddSingleton<ISsoLoginService>(_ => new SsoLoginService());
             services.AddSingleton<IForwardingConfigRepository>(
                 _ => new JsonForwardingConfigRepository(JsonForwardingConfigRepository.DefaultPath));
         }
