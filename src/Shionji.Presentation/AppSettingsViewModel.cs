@@ -20,6 +20,9 @@ public sealed partial class AppSettingsViewModel : ObservableObject
     private readonly IFileLocationService _fileLocation;
     private readonly AppTheme _themeOnOpen;
 
+    /// <summary>保存済みか。閉じたときに試用中のテーマを戻すかどうかの判断に使う。</summary>
+    private bool _themeSaved;
+
     public AppSettingsViewModel(
         IAppSettingsService settings,
         IFolderPickerService folderPicker,
@@ -115,11 +118,15 @@ public sealed partial class AppSettingsViewModel : ObservableObject
     [RelayCommand]
     private void Save()
     {
+        // 空欄は「既定に戻す」の意味。既に既定ならば変更ではないので、再起動を促さない
         var moved =
-            !SamePath(LogDirectory, _settings.LogDirectory)
-            || !SamePath(ConfigsDirectory, DirectoryOf(_settings.ConfigsFilePath));
+            !SamePath(Resolve(LogDirectory, _settings.DefaultLogDirectory), _settings.LogDirectory)
+            || !SamePath(
+                Resolve(ConfigsDirectory, _settings.DefaultConfigsDirectory),
+                DirectoryOf(_settings.ConfigsFilePath));
 
-        var problems = _settings.Save(Theme, LogDirectory, ConfigsDirectory);
+        var problems = _settings.Save(new AppSettingsEdit(Theme, LogDirectory, ConfigsDirectory));
+        _themeSaved = true;
 
         Problems.Clear();
         foreach (var problem in problems)
@@ -136,11 +143,16 @@ public sealed partial class AppSettingsViewModel : ObservableObject
     private void Close() => Closed?.Invoke(this, EventArgs.Empty);
 
     [RelayCommand]
-    private void Cancel()
+    private void Cancel() => Closed?.Invoke(this, EventArgs.Empty);
+
+    /// <summary>
+    /// ウィンドウが閉じられた。キャンセル・× のどちらで閉じても、
+    /// 保存していないテーマの試用は開いたときの状態に戻す。
+    /// </summary>
+    public void HandleWindowClosed()
     {
-        // 見た目だけ変えて閉じた場合は元に戻す
-        _settings.PreviewTheme(_themeOnOpen);
-        Closed?.Invoke(this, EventArgs.Empty);
+        if (!_themeSaved && Theme != _themeOnOpen)
+            _settings.PreviewTheme(_themeOnOpen);
     }
 
     private async Task<string?> PickAsync(string current)
@@ -152,6 +164,10 @@ public sealed partial class AppSettingsViewModel : ObservableObject
     private static string DirectoryOf(string filePath) => Path.GetDirectoryName(filePath) ?? string.Empty;
 
     private static string FileNameOf(string filePath) => Path.GetFileName(filePath);
+
+    /// <summary>空欄は既定のフォルダを指す。</summary>
+    private static string Resolve(string input, string fallback) =>
+        input.Trim().Length == 0 ? fallback : input;
 
     private static bool SamePath(string a, string b) =>
         string.Equals(a.TrimEnd('\\', '/'), b.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase);

@@ -27,6 +27,9 @@ public sealed partial class SettingsWindow : Window
 
         themeHost.Register(this);
         settings.Closed += (_, _) => DispatcherQueue.TryEnqueue(Close);
+
+        // × で閉じてもキャンセル扱いにする (試用中のテーマを残さない)
+        Closed += (_, _) => settings.HandleWindowClosed();
     }
 
     /// <summary>左のメニューの選択を ViewModel へ伝える。表示の切り替え自体は束縛で行う。</summary>

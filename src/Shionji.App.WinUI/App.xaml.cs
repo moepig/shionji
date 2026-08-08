@@ -120,7 +120,7 @@ public partial class App : Microsoft.UI.Xaml.Application
         services.AddSingleton<IClipboardService, WinUiClipboardService>();
 
         var themeHost = new ThemeHost();
-        themeHost.Apply(ThemeOf(settingsStore.Current.Theme));
+        themeHost.Apply(WinUiAppSettingsService.ThemeOf(AppThemes.Parse(settings.Theme)));
         services.AddSingleton(themeHost);
         services.AddSingleton<IConfigEditorWindowService, WinUiConfigEditorWindowService>();
         services.AddSingleton<ISettingsWindowService, WinUiSettingsWindowService>();
@@ -132,12 +132,4 @@ public partial class App : Microsoft.UI.Xaml.Application
 
         return services.BuildServiceProvider();
     }
-
-    private static Microsoft.UI.Xaml.ElementTheme ThemeOf(string? saved) =>
-        WinUiAppSettingsService.ParseTheme(saved) switch
-        {
-            AppTheme.Light => Microsoft.UI.Xaml.ElementTheme.Light,
-            AppTheme.Dark => Microsoft.UI.Xaml.ElementTheme.Dark,
-            _ => Microsoft.UI.Xaml.ElementTheme.Default,
-        };
 }

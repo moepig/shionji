@@ -2,8 +2,12 @@ using System.Text.Json;
 
 namespace Shionji.Infrastructure.Storage;
 
-/// <summary>アプリ全体の設定 (転送設定とは別)。</summary>
-public sealed class AppSettings
+/// <summary>
+/// アプリ全体の設定 (接続先設定とは別)。
+/// 一部だけを書き換えるときは <c>current with { … }</c> とする。
+/// 手で全項目を写すと、項目が増えたときに黙って既定値へ戻る事故が起きる。
+/// </summary>
+public sealed record AppSettings
 {
     /// <summary>session-manager-plugin.exe の上書きパス。null なら自動探索。</summary>
     public string? PluginPath { get; set; }

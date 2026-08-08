@@ -54,8 +54,8 @@ public class AppSettingsViewModelTests
         settings.SaveCommand.Execute(null);
 
         var saved = fake.Saved.Single();
-        await Assert.That(saved.Log).IsEqualTo(@"E:\logs");
-        await Assert.That(saved.Configs).IsEqualTo(@"E:\conf");
+        await Assert.That(saved.LogDirectory).IsEqualTo(@"E:\logs");
+        await Assert.That(saved.ConfigsDirectory).IsEqualTo(@"E:\conf");
     }
 
     [Test]
@@ -78,9 +78,74 @@ public class AppSettingsViewModelTests
 
         settings.Theme = AppTheme.Light;
         settings.CancelCommand.Execute(null);
+        settings.HandleWindowClosed();
 
         await Assert.That(ui.AppSettings.PreviewedTheme).IsEqualTo(AppTheme.Dark);
         await Assert.That(ui.AppSettings.Saved).IsEmpty();
+    }
+
+    [Test]
+    public async Task 閉じるボタン以外で閉じてもテーマは元に戻る()
+    {
+        // × で閉じたときも試用中のテーマを残さない
+        var ui = new UiHarness();
+        ui.AppSettings.Theme = AppTheme.System;
+        ui.Main.ShowSettingsCommand.Execute(null);
+        var settings = ui.SettingsWindow.Last;
+
+        settings.Theme = AppTheme.Dark;
+        settings.HandleWindowClosed();
+
+        await Assert.That(ui.AppSettings.PreviewedTheme).IsEqualTo(AppTheme.System);
+    }
+
+    [Test]
+    public async Task 保存したあとに閉じてもテーマは戻らない()
+    {
+        var ui = new UiHarness();
+        ui.AppSettings.Theme = AppTheme.System;
+        ui.Main.ShowSettingsCommand.Execute(null);
+        var settings = ui.SettingsWindow.Last;
+
+        settings.Theme = AppTheme.Dark;
+        settings.SaveCommand.Execute(null);
+        settings.HandleWindowClosed();
+
+        await Assert.That(ui.AppSettings.PreviewedTheme).IsEqualTo(AppTheme.Dark);
+    }
+
+    [Test]
+    public async Task 既定の場所のまま空欄にしても再起動は促さない()
+    {
+        // 空欄は「既定に戻す」の意味。もともと既定なら何も変わっていない
+        var ui = new UiHarness();
+        ui.AppSettings.DefaultLogDirectory = @"C:\fake\logs";
+        ui.AppSettings.LogDirectory = @"C:\fake\logs";
+        ui.AppSettings.DefaultConfigsDirectory = @"C:\fake";
+        ui.AppSettings.ConfigsFilePath = @"C:\fake\configs.json";
+        ui.Main.ShowSettingsCommand.Execute(null);
+        var settings = ui.SettingsWindow.Last;
+
+        settings.LogDirectory = string.Empty;
+        settings.ConfigsDirectory = string.Empty;
+        settings.SaveCommand.Execute(null);
+
+        await Assert.That(settings.NeedsRestart).IsFalse();
+    }
+
+    [Test]
+    public async Task 既定以外を指定していて空欄にすると再起動を促す()
+    {
+        var ui = new UiHarness();
+        ui.AppSettings.DefaultLogDirectory = @"C:\fake\logs";
+        ui.AppSettings.LogDirectory = @"D:\別の場所";
+        ui.Main.ShowSettingsCommand.Execute(null);
+        var settings = ui.SettingsWindow.Last;
+
+        settings.LogDirectory = string.Empty;
+        settings.SaveCommand.Execute(null);
+
+        await Assert.That(settings.NeedsRestart).IsTrue();
     }
 
     [Test]
@@ -95,8 +160,8 @@ public class AppSettingsViewModelTests
 
         var saved = fake.Saved.Single();
         await Assert.That(saved.Theme).IsEqualTo(AppTheme.Dark);
-        await Assert.That(saved.Log).IsEqualTo(@"E:\logs");
-        await Assert.That(saved.Configs).IsEqualTo(@"E:\conf");
+        await Assert.That(saved.LogDirectory).IsEqualTo(@"E:\logs");
+        await Assert.That(saved.ConfigsDirectory).IsEqualTo(@"E:\conf");
     }
 
     [Test]
