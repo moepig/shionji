@@ -204,10 +204,6 @@ public sealed class TunnelSupervisor(
                 if (state is not SessionState.Reconnecting reconnecting)
                     return;
 
-                _log.LogInformation(
-                    "{Config}: {Delay} 秒後に再接続します ({Attempt} 回目)",
-                    ctx.Config.Name.Value, reconnecting.Delay.TotalSeconds, reconnecting.Attempt);
-
                 try
                 {
                     await retryScheduler.DelayAsync(reconnecting.Delay, cancellationToken);
@@ -400,10 +396,6 @@ public sealed class TunnelSupervisor(
                 opToken = ctx.OpCts?.Token ?? CancellationToken.None;
             }
 
-            _log.LogWarning(
-                "{Config}: トンネルが予期せず終了しました ({Code}: {Message})",
-                ctx.Config.Name.Value, error.Code, error.Message);
-
             if (handle is not null)
                 _ = handle.DisposeAsync();
 
@@ -486,6 +478,40 @@ public sealed class TunnelSupervisor(
         }
     }
 
+    /// <summary>状態遷移をそのまま画面のステータスバーに出せる文言で記録する。</summary>
+    private void LogStateChange(string name, SessionState state)
+    {
+        switch (state)
+        {
+            case SessionState.Resolving:
+                _log.LogInformation("{Config}: リソースを解決しています…", name);
+                break;
+            case SessionState.Starting:
+                _log.LogInformation("{Config}: セッションを開始しています…", name);
+                break;
+            case SessionState.Established established:
+                _log.LogInformation(
+                    "{Config}: localhost:{Port} で接続しました", name, established.Plan.LocalPort.Value);
+                break;
+            case SessionState.Closing:
+                _log.LogInformation("{Config}: 切断しています…", name);
+                break;
+            case SessionState.Idle:
+                _log.LogInformation("{Config}: 切断しました", name);
+                break;
+            case SessionState.Reconnecting reconnecting:
+                _log.LogWarning(
+                    "{Config}: 切断されました。{Delay} 秒後に再接続します ({Attempt} 回目)",
+                    name, reconnecting.Delay.TotalSeconds, reconnecting.Attempt);
+                break;
+            case SessionState.Failed failed:
+                _log.LogError(
+                    "{Config}: 失敗しました [{Phase}] {Message}",
+                    name, failed.Error.Phase, failed.Error.Message);
+                break;
+        }
+    }
+
     private void Emit(SessionContext ctx)
     {
         SessionState state;
@@ -496,17 +522,7 @@ public sealed class TunnelSupervisor(
             localPort = state is SessionState.Established established ? established.Plan.LocalPort : null;
         }
 
-        if (state is SessionState.Failed failed)
-        {
-            _log.LogWarning(
-                "{Config}: 失敗 [{Phase}/{Code}] {Message}",
-                ctx.Config.Name.Value, failed.Error.Phase, failed.Error.Code, failed.Error.Message);
-        }
-        else
-        {
-            _log.LogInformation("{Config}: {State}", ctx.Config.Name.Value, state.GetType().Name);
-        }
-
+        LogStateChange(ctx.Config.Name.Value, state);
         SessionChanged?.Invoke(this, new SessionChangedEventArgs(ctx.Config.Id, state, localPort));
     }
 }

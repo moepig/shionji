@@ -65,3 +65,29 @@ public sealed class WinUiClipboardService : IClipboardService
         Clipboard.SetContent(package);
     }
 }
+
+/// <summary>ログの保存先をエクスプローラーで開く。</summary>
+public sealed class WinUiLogLocationService(string logDirectory) : ILogLocationService
+{
+    public string LogDirectory { get; } = logDirectory;
+
+    public void OpenLogLocation()
+    {
+        try
+        {
+            Directory.CreateDirectory(LogDirectory);
+
+            // 当日のログがあればそれを選択した状態で開く
+            var today = Path.Combine(LogDirectory, $"shionji-{DateTime.Now:yyyyMMdd}.log");
+            var arguments = File.Exists(today) ? $"/select,\"{today}\"" : $"\"{LogDirectory}\"";
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe", arguments)
+            {
+                UseShellExecute = true,
+            });
+        }
+        catch (Exception)
+        {
+            // 開けなくてもアプリの動作には影響しない
+        }
+    }
+}
