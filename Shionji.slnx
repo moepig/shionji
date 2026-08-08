@@ -3,10 +3,13 @@
     <Project Path="src/Shionji.Application/Shionji.Application.csproj" />
     <Project Path="src/Shionji.Domain/Shionji.Domain.csproj" />
     <Project Path="src/Shionji.Infrastructure/Shionji.Infrastructure.csproj" />
+    <Project Path="src/Shionji.Presentation/Shionji.Presentation.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Shionji.Application.Tests/Shionji.Application.Tests.csproj" />
     <Project Path="tests/Shionji.Domain.Tests/Shionji.Domain.Tests.csproj" />
     <Project Path="tests/Shionji.Infrastructure.Tests/Shionji.Infrastructure.Tests.csproj" />
+    <Project Path="tests/Shionji.Presentation.Tests/Shionji.Presentation.Tests.csproj" />
+    <Project Path="tests/Shionji.TestSupport/Shionji.TestSupport.csproj" />
   </Folder>
 </Solution>
