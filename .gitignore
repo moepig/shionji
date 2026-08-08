@@ -7,6 +7,14 @@ artifacts/
 *.suo
 TestResults/
 
+## MSIX パッケージング
+AppPackages/
+BundleArtifacts/
+*.appx
+*.msix
+*.msixbundle
+*.pfx
+
 ## Rider / VS Code
 .idea/
 .vscode/
