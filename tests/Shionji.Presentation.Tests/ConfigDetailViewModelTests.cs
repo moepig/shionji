@@ -62,6 +62,30 @@ public class ConfigDetailViewModelTests
     }
 
     [Test]
+    public async Task 選択前のログも行切替後も失われない()
+    {
+        var ui = new UiHarness();
+        await ui.App.Configs.SaveAsync(TestData.StaticConfig(name: "api-db", localPort: 15001));
+        await ui.App.Configs.SaveAsync(TestData.StaticConfig(name: "cache", localPort: 15002));
+        var apiRow = ui.Main.Rows.Single(r => r.Name == "api-db");
+        var cacheRow = ui.Main.Rows.Single(r => r.Name == "cache");
+
+        // どの行も選択していない状態でログが発生する
+        await apiRow.ToggleConnectionCommand.ExecuteAsync(null);
+        ui.App.Launcher.LastHandle.EmitLog("Port 15001 opened for sessionId x.");
+
+        ui.Main.SelectedRow = apiRow;
+        var detail = (ConfigDetailViewModel)ui.Main.DetailContent!;
+        await Assert.That(detail.LogLines.Count).IsEqualTo(1);
+
+        // 別の行へ切り替えて戻ってもログが残る
+        ui.Main.SelectedRow = cacheRow;
+        ui.Main.SelectedRow = apiRow;
+        detail = (ConfigDetailViewModel)ui.Main.DetailContent!;
+        await Assert.That(detail.LogLines.Count).IsEqualTo(1);
+    }
+
+    [Test]
     public async Task セッションログが詳細に流れる()
     {
         var ui = new UiHarness();

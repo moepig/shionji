@@ -19,6 +19,7 @@ public sealed partial class MainViewModel : ObservableObject
     private readonly INotificationService _notifications;
     private readonly IClipboardService _clipboard;
     private readonly ISsoLoginService _ssoLogin;
+    private readonly SessionLogStore _sessionLog;
 
     private readonly Dictionary<ConfigId, ConfigRowViewModel> _rowsById = [];
     private readonly HashSet<ConfigId> _established = [];
@@ -42,7 +43,8 @@ public sealed partial class MainViewModel : ObservableObject
         IUiDispatcher dispatcher,
         INotificationService notifications,
         IClipboardService clipboard,
-        ISsoLoginService ssoLogin)
+        ISsoLoginService ssoLogin,
+        SessionLogStore sessionLog)
     {
         _configService = configService;
         _supervisor = supervisor;
@@ -51,10 +53,11 @@ public sealed partial class MainViewModel : ObservableObject
         _notifications = notifications;
         _clipboard = clipboard;
         _ssoLogin = ssoLogin;
+        _sessionLog = sessionLog;
 
         _configService.ConfigsChanged += (_, _) => _dispatcher.Post(RebuildRows);
         _supervisor.SessionChanged += (_, e) => _dispatcher.Post(() => OnSessionChanged(e));
-        _supervisor.SessionLog += (_, e) =>
+        _sessionLog.LineAppended += (_, e) =>
             _dispatcher.Post(() => (DetailContent as ConfigDetailViewModel)?.AppendLog(e));
         _resolution.ViewChanged += (_, id) => _dispatcher.Post(() => RefreshConfig(id));
     }
@@ -71,6 +74,7 @@ public sealed partial class MainViewModel : ObservableObject
         }
 
         var detail = new ConfigDetailViewModel(this, value.ConfigId, _clipboard);
+        detail.LoadLog(_sessionLog.GetLines(value.ConfigId));
         DetailContent = detail;
         RefreshDetail(detail);
     }

@@ -98,7 +98,20 @@ public sealed partial class ConfigDetailViewModel(
         if (log.ConfigId != ConfigId)
             return;
 
-        LogLines.Add(log.IsError ? $"[stderr] {log.Line}" : log.Line);
+        AddLine(new SessionLogLine(log.Line, log.IsError));
+    }
+
+    /// <summary>選択時に SessionLogStore の蓄積分を反映する。</summary>
+    internal void LoadLog(IReadOnlyList<SessionLogLine> lines)
+    {
+        LogLines.Clear();
+        foreach (var line in lines)
+            AddLine(line);
+    }
+
+    private void AddLine(SessionLogLine line)
+    {
+        LogLines.Add(line.IsError ? $"[stderr] {line.Line}" : line.Line);
         while (LogLines.Count > MaxLogLines)
             LogLines.RemoveAt(0);
     }

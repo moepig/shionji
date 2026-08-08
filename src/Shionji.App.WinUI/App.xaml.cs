@@ -66,6 +66,7 @@ public partial class App : Microsoft.UI.Xaml.Application
 
         services.AddSingleton<ResolutionService>();
         services.AddSingleton<TunnelSupervisor>();
+        services.AddSingleton<SessionLogStore>();
         services.AddSingleton<ConfigService>();
         services.AddSingleton<StartupService>();
 
