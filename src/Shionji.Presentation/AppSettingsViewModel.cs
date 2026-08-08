@@ -4,7 +4,15 @@ using CommunityToolkit.Mvvm.Input;
 
 namespace Shionji.Presentation;
 
-/// <summary>アプリ設定ウィンドウ。表示 / ログ / 設定 の 3 節。</summary>
+/// <summary>アプリ設定ウィンドウの大項目。左のメニューで切り替える。</summary>
+public enum SettingsSection
+{
+    Display,
+    Log,
+    Files,
+}
+
+/// <summary>アプリ設定ウィンドウ。表示 / ログ / 設定 を大項目として切り替える。</summary>
 public sealed partial class AppSettingsViewModel : ObservableObject
 {
     private readonly IAppSettingsService _settings;
@@ -34,6 +42,28 @@ public sealed partial class AppSettingsViewModel : ObservableObject
     public string SettingsFilePath => _settings.SettingsFilePath;
 
     public event EventHandler? Closed;
+
+    // --- 大項目の切り替え ---
+
+    /// <summary>いま開いている大項目。</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsDisplaySection))]
+    [NotifyPropertyChangedFor(nameof(IsLogSection))]
+    [NotifyPropertyChangedFor(nameof(IsFilesSection))]
+    [NotifyPropertyChangedFor(nameof(SectionTitle))]
+    public partial SettingsSection Section { get; set; } = SettingsSection.Display;
+
+    public bool IsDisplaySection => Section == SettingsSection.Display;
+    public bool IsLogSection => Section == SettingsSection.Log;
+    public bool IsFilesSection => Section == SettingsSection.Files;
+
+    public string SectionTitle => Section switch
+    {
+        SettingsSection.Display => "表示",
+        SettingsSection.Log => "ログ",
+        SettingsSection.Files => "設定",
+        _ => string.Empty,
+    };
 
     // --- 表示 ---
 

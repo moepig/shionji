@@ -14,7 +14,7 @@
                 <ResourceDictionary.ThemeDictionaries>
                     <!-- 詳細ペインの中身。カードより一段明るくして、見出し帯と区別する -->
                     <ResourceDictionary x:Key="Light">
-                        <SolidColorBrush x:Key="DetailBodyBackgroundBrush" Color="#FBFBFB" />
+                        <SolidColorBrush x:Key="DetailBodyBackgroundBrush" Color="#F4F4F4" />
                     </ResourceDictionary>
                     <ResourceDictionary x:Key="Dark">
                         <SolidColorBrush x:Key="DetailBodyBackgroundBrush" Color="#33333A" />
@@ -30,6 +30,21 @@
             <local:BoolToVisibilityConverter x:Key="BoolToVis" />
             <local:NullToVisibilityConverter x:Key="NullToVis" />
             <local:EnumIndexConverter x:Key="EnumIndex" />
+
+            <!-- 画面の幅いっぱいに渡す帯。中身は文字入りの小さなボタン -->
+            <Style x:Key="ToolbarStyle" TargetType="Border">
+                <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorSecondaryBrush}" />
+                <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="CornerRadius" Value="4" />
+                <Setter Property="Padding" Value="4,3" />
+            </Style>
+
+            <Style x:Key="ToolbarButtonStyle" TargetType="Button">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Padding" Value="10,4" />
+            </Style>
 
             <!-- 一覧と詳細をカードとして囲み、境界を明示する -->
             <Style x:Key="PaneStyle" TargetType="Border">
@@ -269,19 +284,24 @@
         </Grid.RowDefinitions>
 
         <!-- ツールバー: アプリ全体に対する操作。一覧固有の操作は一覧ペイン側にある -->
-        <CommandBar DefaultLabelPosition="Right" HorizontalAlignment="Left"
-                    Background="Transparent" IsOpen="False" OverflowButtonVisibility="Collapsed">
-            <AppBarButton Label="設定" Command="{Binding ShowSettingsCommand}">
-                <AppBarButton.Icon>
-                    <FontIcon Glyph="&#xE713;" />
-                </AppBarButton.Icon>
-            </AppBarButton>
-            <AppBarButton Label="ログフォルダ" Command="{Binding OpenLogLocationCommand}">
-                <AppBarButton.Icon>
-                    <FontIcon Glyph="&#xE838;" />
-                </AppBarButton.Icon>
-            </AppBarButton>
-        </CommandBar>
+        <Border Style="{StaticResource ToolbarStyle}">
+            <StackPanel Orientation="Horizontal" Spacing="2">
+                <Button Style="{StaticResource ToolbarButtonStyle}"
+                        Command="{Binding ShowSettingsCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <FontIcon Glyph="&#xE713;" FontSize="14" />
+                        <TextBlock Text="設定" />
+                    </StackPanel>
+                </Button>
+                <Button Style="{StaticResource ToolbarButtonStyle}"
+                        Command="{Binding OpenLogLocationCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <FontIcon Glyph="&#xE838;" FontSize="14" />
+                        <TextBlock Text="ログフォルダ" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Border>
 
         <Grid Grid.Row="1" ColumnSpacing="12">
             <Grid.ColumnDefinitions>

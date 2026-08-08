@@ -1,5 +1,6 @@
 using System.IO;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 using Shionji.Presentation;
 
 namespace Shionji.App.WinUI;
@@ -10,19 +11,32 @@ public sealed partial class SettingsWindow : Window
     private static readonly string IconPath =
         Path.Combine(AppContext.BaseDirectory, "Assets", "shionji.ico");
 
+    private readonly AppSettingsViewModel _settings;
+
     public SettingsWindow(AppSettingsViewModel settings, ThemeHost themeHost)
     {
         InitializeComponent();
 
+        _settings = settings;
         Title = "設定";
         RootGrid.DataContext = settings;
 
         if (File.Exists(IconPath))
             AppWindow.SetIcon(IconPath);
-        AppWindow.Resize(new Windows.Graphics.SizeInt32(620, 820));
+        AppWindow.Resize(new Windows.Graphics.SizeInt32(760, 620));
 
         themeHost.Register(this);
         settings.Closed += (_, _) => DispatcherQueue.TryEnqueue(Close);
+    }
+
+    /// <summary>左のメニューの選択を ViewModel へ伝える。表示の切り替え自体は束縛で行う。</summary>
+    private void OnSectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
+    {
+        if (args.SelectedItem is NavigationViewItem { Tag: string tag }
+            && Enum.TryParse<SettingsSection>(tag, out var section))
+        {
+            _settings.Section = section;
+        }
     }
 }
 

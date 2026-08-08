@@ -76,7 +76,8 @@ public sealed partial class NullToVisibilityConverter : IValueConverter
 
 /// <summary>
 /// enum ⇔ ComboBox.SelectedIndex。parameter に enum 名を指定する
-/// (DestinationKind / GatewayKind / CacheRole / AuroraRole / AppTheme)。項目順は enum 定義順。
+/// (DestinationKind / GatewayKind / CacheRole / AuroraRole / AppTheme / SettingsSection)。
+/// 項目順は enum 定義順。
 /// </summary>
 public sealed partial class EnumIndexConverter : IValueConverter
 {
@@ -99,6 +100,7 @@ public sealed partial class EnumIndexConverter : IValueConverter
             "CacheRole" => (Domain.Configuration.CacheEndpointRole)index,
             "AuroraRole" => (Domain.Configuration.AuroraEndpointRole)index,
             "AppTheme" => (AppTheme)index,
+            "SettingsSection" => (SettingsSection)index,
             _ => index,
         };
     }
