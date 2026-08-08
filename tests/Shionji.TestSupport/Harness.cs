@@ -14,6 +14,7 @@ public sealed class Harness
     public IRetryScheduler Scheduler { get; }
     public ResolutionService Resolution { get; }
     public TunnelSupervisor Supervisor { get; }
+    public SessionLogStore Logs { get; }
     public InMemoryRepository Repository { get; }
     public ConfigService Configs { get; }
 
@@ -24,8 +25,9 @@ public sealed class Harness
         Scheduler = scheduler ?? new ImmediateScheduler();
         Resolution = new ResolutionService(Catalog, Clock);
         Supervisor = new TunnelSupervisor(Catalog, Launcher, Probe, Clock, Scheduler, Resolution);
+        Logs = new SessionLogStore(Supervisor);
         Repository = repository ?? new InMemoryRepository();
-        Configs = new ConfigService(Repository, Supervisor, Resolution);
+        Configs = new ConfigService(Repository, Supervisor, Resolution, Logs);
         Supervisor.SessionChanged += (_, e) =>
         {
             lock (_events)

@@ -10,7 +10,8 @@ namespace Shionji.Application;
 public sealed class ConfigService(
     IForwardingConfigRepository repository,
     TunnelSupervisor supervisor,
-    ResolutionService resolutionService)
+    ResolutionService resolutionService,
+    SessionLogStore sessionLogStore)
 {
     private readonly object _sync = new();
     private List<ForwardingConfig> _configs = [];
@@ -73,6 +74,7 @@ public sealed class ConfigService(
         }
 
         resolutionService.Remove(id);
+        sessionLogStore.Remove(id);
         ConfigsChanged?.Invoke(this, EventArgs.Empty);
     }
 }

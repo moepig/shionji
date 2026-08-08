@@ -62,6 +62,7 @@ internal sealed class UiHarness
             new ImmediateDispatcher(),
             Notifications,
             Clipboard,
-            SsoLogin);
+            SsoLogin,
+            App.Logs);
     }
 }
