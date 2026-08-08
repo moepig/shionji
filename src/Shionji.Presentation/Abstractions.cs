@@ -70,14 +70,11 @@ public interface IAppSettingsService
     /// <summary>ログの保存先フォルダ。</summary>
     string LogDirectory { get; }
 
-    /// <summary>アプリ設定ファイルの絶対パス。</summary>
+    /// <summary>アプリ設定ファイルの絶対パス。置き場所は固定なので表示のみ。</summary>
     string SettingsFilePath { get; }
 
     /// <summary>接続先設定ファイルの絶対パス。</summary>
     string ConfigsFilePath { get; }
-
-    /// <summary>保存先の指定そのものを保持するファイルの絶対パス (常に既定フォルダ)。</summary>
-    string BootstrapFilePath { get; }
 
     /// <summary>テーマを即座に適用する (保存は Save で行う)。</summary>
     void PreviewTheme(AppTheme theme);
@@ -86,6 +83,5 @@ public interface IAppSettingsService
     /// 保存する。フォルダの指定は空文字で既定に戻す。
     /// 保存はできたが完全には反映できなかった事情 (ファイルを移せなかったなど) を返す。
     /// </summary>
-    IReadOnlyList<string> Save(
-        AppTheme theme, string logDirectory, string settingsDirectory, string configsDirectory);
+    IReadOnlyList<string> Save(AppTheme theme, string logDirectory, string configsDirectory);
 }

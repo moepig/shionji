@@ -19,14 +19,23 @@ public sealed class AppSettings
 
     /// <summary>カラーテーマ。System / Light / Dark。</summary>
     public string Theme { get; set; } = "System";
+
+    /// <summary>ログファイルを置くフォルダ。null なら既定。</summary>
+    public string? LogDirectory { get; set; }
+
+    /// <summary>接続先設定ファイルを置くフォルダ。null なら既定。</summary>
+    public string? ConfigsDirectory { get; set; }
 }
 
-/// <summary>%APPDATA%/Shionji/appsettings.json の読み書き。</summary>
-public sealed class AppSettingsStore(string filePath)
+/// <summary>%APPDATA%/Shionji/appsettings.json の読み書き。この置き場所は固定。</summary>
+public sealed class AppSettingsStore(string? filePath = null)
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
-    public static string DefaultPath => Path.Combine(StorageLocations.DefaultDirectory, "appsettings.json");
+    private readonly string _filePath = filePath ?? AppPaths.SettingsFilePath;
+
+    /// <summary>実際に読み書きしているファイル。</summary>
+    public string FilePath => _filePath;
 
     public AppSettings Current { get; private set; } = new();
 
@@ -35,11 +44,11 @@ public sealed class AppSettingsStore(string filePath)
     /// </summary>
     public AppSettings Load()
     {
-        if (File.Exists(filePath))
+        if (File.Exists(_filePath))
         {
             try
             {
-                Current = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(filePath), JsonOptions)
+                Current = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(_filePath), JsonOptions)
                     ?? new AppSettings();
             }
             catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
@@ -51,12 +60,33 @@ public sealed class AppSettingsStore(string filePath)
         return Current;
     }
 
-    public void Save(AppSettings settings)
+    /// <summary>
+    /// 保存する。接続先設定の保存先が変わっていれば既存ファイルも移す。
+    /// 保存はできたが完全には反映できなかった事情を返す。
+    /// </summary>
+    public IReadOnlyList<string> Save(AppSettings settings)
     {
+        List<string> problems = [];
+
+        StorageRelocation.MoveIfNeeded(
+            AppPaths.ResolveConfigsFilePath(Current),
+            AppPaths.ResolveConfigsFilePath(settings),
+            "接続先設定ファイル",
+            problems);
+        StorageRelocation.EnsureDirectory(AppPaths.ResolveLogDirectory(settings), "ログ", problems);
+
         Current = settings;
-        var directory = Path.GetDirectoryName(filePath);
-        if (directory is { Length: > 0 })
-            Directory.CreateDirectory(directory);
-        File.WriteAllText(filePath, JsonSerializer.Serialize(settings, JsonOptions));
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(_filePath)!);
+            File.WriteAllText(_filePath, JsonSerializer.Serialize(settings, JsonOptions));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            problems.Add($"アプリ設定を書き込めません: {ex.Message}");
+        }
+
+        return problems;
     }
 }

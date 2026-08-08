@@ -24,12 +24,14 @@ public sealed partial class AppSettingsViewModel : ObservableObject
         _themeOnOpen = settings.Theme;
         Theme = settings.Theme;
         LogDirectory = settings.LogDirectory;
-        SettingsDirectory = DirectoryOf(settings.SettingsFilePath);
         ConfigsDirectory = DirectoryOf(settings.ConfigsFilePath);
     }
 
-    /// <summary>保存先の指定自体の置き場所。ここだけは動かせないことを画面で説明する。</summary>
-    public string BootstrapFilePath => _settings.BootstrapFilePath;
+    /// <summary>
+    /// アプリ設定ファイルの絶対パス。ここに保存先の指定も入るため、
+    /// このファイル自身は動かせない。表示のみ。
+    /// </summary>
+    public string SettingsFilePath => _settings.SettingsFilePath;
 
     public event EventHandler? Closed;
 
@@ -47,15 +49,10 @@ public sealed partial class AppSettingsViewModel : ObservableObject
     [ObservableProperty]
     public partial string LogDirectory { get; set; } = string.Empty;
 
-    /// <summary>アプリ設定ファイルを置くフォルダ。空なら既定。</summary>
-    [ObservableProperty]
-    public partial string SettingsDirectory { get; set; } = string.Empty;
-
     /// <summary>接続先設定ファイルを置くフォルダ。空なら既定。</summary>
     [ObservableProperty]
     public partial string ConfigsDirectory { get; set; } = string.Empty;
 
-    public string SettingsFileName => FileNameOf(_settings.SettingsFilePath);
     public string ConfigsFileName => FileNameOf(_settings.ConfigsFilePath);
 
     /// <summary>保存できたが完全には反映できなかった事情。空なら何も出さない。</summary>
@@ -73,10 +70,6 @@ public sealed partial class AppSettingsViewModel : ObservableObject
         LogDirectory = await PickAsync(LogDirectory) ?? LogDirectory;
 
     [RelayCommand]
-    private async Task BrowseSettingsAsync() =>
-        SettingsDirectory = await PickAsync(SettingsDirectory) ?? SettingsDirectory;
-
-    [RelayCommand]
     private async Task BrowseConfigsAsync() =>
         ConfigsDirectory = await PickAsync(ConfigsDirectory) ?? ConfigsDirectory;
 
@@ -84,7 +77,7 @@ public sealed partial class AppSettingsViewModel : ObservableObject
     private void OpenLog() => _fileLocation.OpenFolder(LogDirectory);
 
     [RelayCommand]
-    private void OpenSettings() => _fileLocation.OpenFolder(SettingsDirectory);
+    private void OpenSettings() => _fileLocation.OpenFolder(DirectoryOf(_settings.SettingsFilePath));
 
     [RelayCommand]
     private void OpenConfigs() => _fileLocation.OpenFolder(ConfigsDirectory);
@@ -94,10 +87,9 @@ public sealed partial class AppSettingsViewModel : ObservableObject
     {
         var moved =
             !SamePath(LogDirectory, _settings.LogDirectory)
-            || !SamePath(SettingsDirectory, DirectoryOf(_settings.SettingsFilePath))
             || !SamePath(ConfigsDirectory, DirectoryOf(_settings.ConfigsFilePath));
 
-        var problems = _settings.Save(Theme, LogDirectory, SettingsDirectory, ConfigsDirectory);
+        var problems = _settings.Save(Theme, LogDirectory, ConfigsDirectory);
 
         Problems.Clear();
         foreach (var problem in problems)

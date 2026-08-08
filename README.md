@@ -99,13 +99,13 @@ dotnet build src/Shionji.App.WinUI/Shionji.App.WinUI.csproj
 
 ## データの保存先
 
-既定は以下。ツールバーの「設定」からいずれも別のフォルダへ変更できる (変更は再起動後に反映され、既存のファイルは移動される)。
+- アプリ設定 (plugin パス / トレイ挙動 / AWS エンドポイント上書き / カラーテーマ / 下 2 つの保存先): `%APPDATA%\Shionji\appsettings.json` — **固定**
+- 接続先設定: 既定 `%APPDATA%\Shionji\configs.json`
+- ログ: 既定 `%APPDATA%\Shionji\logs\shionji-yyyyMMdd.log` (既定 30 日で自動削除。`LogRetentionDays` で変更可)
 
-- 接続先設定: `%APPDATA%\Shionji\configs.json`
-- アプリ設定 (plugin パス / トレイ挙動 / AWS エンドポイント上書き / カラーテーマ): `%APPDATA%\Shionji\appsettings.json`
-- ログ: `%APPDATA%\Shionji\logs\shionji-yyyyMMdd.log` (既定 30 日で自動削除。`LogRetentionDays` で変更可)
+下 2 つはツールバーの「設定」から別のフォルダへ変更できる。変更は再起動後に反映され、既存のファイルは新しい場所へ移される (移動先に同名のファイルがある場合は上書きせず、その旨を画面に出す)。
 
-保存先の指定そのものは `%APPDATA%\Shionji\locations.json` に記録される。「設定ファイルの置き場所」を設定ファイルに書くことはできないため、このファイルだけは常に既定フォルダにあり移動できない。
+アプリ設定ファイル自身の置き場所は変更できない。保存先の指定もこのファイルに入るため、これを動かすと次の起動で見つけられなくなる。
 
 ## ログ (監査用途)
 

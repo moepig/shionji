@@ -80,20 +80,18 @@ internal sealed class FakeAppSettings : IAppSettingsService
     public string LogDirectory { get; set; } = @"C:\fake\logs";
     public string SettingsFilePath { get; set; } = @"C:\fake\appsettings.json";
     public string ConfigsFilePath { get; set; } = @"C:\fake\configs.json";
-    public string BootstrapFilePath => @"C:\fake\locations.json";
 
     /// <summary>Save が返す事情。保存はできたが完全には反映できなかった場合に使う。</summary>
     public List<string> Problems { get; } = [];
 
     public AppTheme? PreviewedTheme { get; private set; }
-    public List<(AppTheme Theme, string Log, string Settings, string Configs)> Saved { get; } = [];
+    public List<(AppTheme Theme, string Log, string Configs)> Saved { get; } = [];
 
     public void PreviewTheme(AppTheme theme) => PreviewedTheme = theme;
 
-    public IReadOnlyList<string> Save(
-        AppTheme theme, string logDirectory, string settingsDirectory, string configsDirectory)
+    public IReadOnlyList<string> Save(AppTheme theme, string logDirectory, string configsDirectory)
     {
-        Saved.Add((theme, logDirectory, settingsDirectory, configsDirectory));
+        Saved.Add((theme, logDirectory, configsDirectory));
         Theme = theme;
         return Problems;
     }

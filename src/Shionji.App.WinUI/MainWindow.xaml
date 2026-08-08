@@ -30,7 +30,6 @@
             <local:BoolToVisibilityConverter x:Key="BoolToVis" />
             <local:NullToVisibilityConverter x:Key="NullToVis" />
             <local:EnumIndexConverter x:Key="EnumIndex" />
-            <local:ErrorBrushConverter x:Key="ErrorBrush" />
 
             <!-- 一覧と詳細をカードとして囲み、境界を明示する -->
             <Style x:Key="PaneStyle" TargetType="Border">
@@ -151,9 +150,13 @@
                                        Style="{StaticResource FieldValueStyle}" />
 
                             <TextBlock Grid.Row="3" Text="転送先" Style="{StaticResource FieldLabelStyle}" />
+                            <!-- 特定できていないときだけ赤い方を重ねる。
+                                 Foreground を条件付きで差し替えるとテーマ既定の文字色を失う -->
                             <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding DestinationText}"
-                                       Style="{StaticResource FieldValueStyle}"
-                                       Foreground="{Binding DestinationHasError, Converter={StaticResource ErrorBrush}}" />
+                                       Style="{StaticResource FieldValueStyle}" />
+                            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding DestinationText}"
+                                       Style="{StaticResource FieldValueStyle}" Foreground="IndianRed"
+                                       Visibility="{Binding DestinationHasError, Converter={StaticResource BoolToVis}}" />
 
                             <TextBlock Grid.Row="4" Text="ローカル" Style="{StaticResource FieldLabelStyle}" />
                             <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Spacing="8">
