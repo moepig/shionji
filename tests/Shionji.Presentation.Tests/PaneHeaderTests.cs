@@ -18,8 +18,7 @@ public class PaneHeaderTests
         await ui.App.Configs.SaveAsync(TestData.StaticConfig(name: "b", localPort: 15002));
         await Assert.That(ui.Main.ConfigsHeader).IsEqualTo("設定 (2)");
 
-        // フィルタ中は絞り込み後の件数
-        ui.Main.FilterText = "a";
+        await ui.App.Configs.DeleteAsync(ui.Main.Rows[0].ConfigId);
         await Assert.That(ui.Main.ConfigsHeader).IsEqualTo("設定 (1)");
     }
 

@@ -66,7 +66,7 @@ public sealed class ConfigService(
                 _configs.Add(config);
         }
 
-        _log.Audit(LogLevel.Information, $"設定「{config.Name.Value}」を保存しました",
+        _log.Audit(LogLevel.Information, $"[設定名: {config.Name.Value}] 設定を保存しました",
             ("操作", "保存"),
             ("設定", config.Name.Value),
             ("設定ID", config.Id.Value),
@@ -84,7 +84,7 @@ public sealed class ConfigService(
             _configs.RemoveAll(c => c.Id == id);
         }
 
-        _log.Audit(LogLevel.Information, $"設定「{name}」を削除しました",
+        _log.Audit(LogLevel.Information, $"[設定名: {name}] 設定を削除しました",
             ("操作", "削除"), ("設定", name), ("設定ID", id.Value));
         resolutionService.Remove(id);
         sessionLogStore.Remove(id);

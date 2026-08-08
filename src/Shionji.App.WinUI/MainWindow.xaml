@@ -201,12 +201,26 @@
 
                         <TextBlock Text="操作" Style="{StaticResource SectionHeadingStyle}" />
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <ToggleButton Content="接続"
-                                          IsChecked="{Binding IsConnected, Mode=OneWay}"
-                                          Command="{Binding ToggleConnectionCommand}" />
+                            <Button Content="接続" Command="{Binding ConnectCommand}"
+                                    IsEnabled="{Binding CanConnect}" />
+                            <Button Content="切断" Command="{Binding DisconnectCommand}"
+                                    IsEnabled="{Binding CanDisconnect}" />
                             <Button Content="リソース再検索" Command="{Binding RefreshResolutionCommand}" />
                             <Button Content="編集" Command="{Binding EditCommand}" />
-                            <Button Content="削除" Command="{Binding DeleteCommand}" />
+                            <!-- 取り消せない操作なので色で区別する -->
+                            <Button Content="削除" Command="{Binding DeleteCommand}">
+                                <Button.Resources>
+                                    <SolidColorBrush x:Key="ButtonBackground" Color="#C42B1C" />
+                                    <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="#B02418" />
+                                    <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#8E1D13" />
+                                    <SolidColorBrush x:Key="ButtonForeground" Color="White" />
+                                    <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="White" />
+                                    <SolidColorBrush x:Key="ButtonForegroundPressed" Color="White" />
+                                    <SolidColorBrush x:Key="ButtonBorderBrush" Color="Transparent" />
+                                    <SolidColorBrush x:Key="ButtonBorderBrushPointerOver" Color="Transparent" />
+                                    <SolidColorBrush x:Key="ButtonBorderBrushPressed" Color="Transparent" />
+                                </Button.Resources>
+                            </Button>
                         </StackPanel>
 
                         <StackPanel Orientation="Horizontal" Spacing="8"
@@ -242,20 +256,11 @@
         </Grid.Resources>
 
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <StackPanel Orientation="Horizontal" Spacing="8">
-            <TextBox x:Name="FilterBox" PlaceholderText="設定名でフィルタ" Width="260"
-                     TextChanged="OnFilterChanged" />
-            <TextBlock x:Name="DemoBadge" Text="デモモード" VerticalAlignment="Center"
-                       Style="{StaticResource BodyStrongTextBlockStyle}"
-                       Foreground="DarkOrange" Visibility="Collapsed" />
-        </StackPanel>
-
-        <Grid Grid.Row="1" ColumnSpacing="12">
+        <Grid ColumnSpacing="12">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="380" />
                 <ColumnDefinition Width="*" />
@@ -340,28 +345,32 @@
         </Grid>
 
         <!-- ステータスバー: 最新の動作を 1 行で出し、そこから履歴とログファイルへ辿れる -->
-        <Border Grid.Row="2" Padding="10,6" CornerRadius="4"
+        <Border Grid.Row="1" Padding="10,6" CornerRadius="4"
                 Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}">
             <Grid ColumnSpacing="8">
                 <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <Ellipse Width="8" Height="8" VerticalAlignment="Center"
+                <TextBlock x:Name="DemoBadge" Text="デモモード" VerticalAlignment="Center"
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="DarkOrange" Visibility="Collapsed" />
+                <Ellipse Grid.Column="1" Width="8" Height="8" VerticalAlignment="Center"
                          Fill="{Binding StatusSeverity, Converter={StaticResource ActivityBrush}}" />
-                <TextBlock Grid.Column="1" VerticalAlignment="Center"
+                <TextBlock Grid.Column="2" VerticalAlignment="Center"
                            Style="{StaticResource CaptionTextBlockStyle}"
                            Text="{Binding StatusText}"
                            TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
-                <TextBlock Grid.Column="2" VerticalAlignment="Center"
+                <TextBlock Grid.Column="3" VerticalAlignment="Center"
                            Style="{StaticResource CaptionTextBlockStyle}"
                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                            Text="{Binding StatusTime}" />
 
-                <Button Grid.Column="3" Content="ログ">
+                <Button Grid.Column="4" Content="ログ">
                     <Button.Flyout>
                         <Flyout>
                             <StackPanel x:Name="ActivityPanel" Width="560" Spacing="8">

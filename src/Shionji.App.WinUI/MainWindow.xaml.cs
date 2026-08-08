@@ -59,9 +59,6 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private void OnFilterChanged(object sender, TextChangedEventArgs e) =>
-        _viewModel.FilterText = FilterBox.Text;
-
     private void OnClosing(AppWindow sender, AppWindowClosingEventArgs args)
     {
         if (!_exiting && _settings.Current.MinimizeToTray && _trayIcon is not null)

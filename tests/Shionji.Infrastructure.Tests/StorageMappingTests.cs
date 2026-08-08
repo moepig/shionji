@@ -44,8 +44,8 @@ public class StorageMappingTests
     public async Task ElastiCacheクエリとEC2クエリ踏み台のラウンドトリップ()
     {
         var tags = TagFilters.Of(
-            TagFilter.Create("Environment", ["production", "staging"]).Value,
-            TagFilter.Create("Team", ["platform"]).Value);
+            TagFilter.Create("Environment", "production").Value,
+            TagFilter.Create("Team", "platform").Value);
 
         await AssertRoundTrip(Build(
             LocalPortSpec.Auto.Instance,

@@ -35,8 +35,8 @@ public class AuditLogTests
 
         // ステータスバーに出るのは要約だけで、詳細は混ざらない
         var summaries = harness.Activity.Recent.Select(e => e.Message).ToList();
-        await Assert.That(summaries).Contains("api-db: localhost:13306 で接続しました");
-        await Assert.That(summaries).Contains("api-db: リソースを自動検索しています…");
+        await Assert.That(summaries).Contains("[設定名: api-db] localhost:13306 で接続しました");
+        await Assert.That(summaries).Contains("[設定名: api-db] リソースを自動検索しています…");
         await Assert.That(summaries.Any(s => s.Contains('='))).IsFalse();
         await Assert.That(summaries.All(s => s.Length <= 60)).IsTrue();
     }

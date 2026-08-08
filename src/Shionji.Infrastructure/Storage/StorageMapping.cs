@@ -92,7 +92,7 @@ public static class StorageMapping
         };
 
         dto.NamePattern = query.Name?.Value;
-        dto.Tags = [.. query.Tags.Items.Select(f => new TagFilterDto { Key = f.Key, Values = [.. f.Values] })];
+        dto.Tags = [.. query.Tags.Items.Select(f => new TagFilterDto { Key = f.Key, Value = f.Value })];
         dto.Match = query.Match.ToString();
         return dto;
     }
@@ -103,7 +103,7 @@ public static class StorageMapping
             ? Require(NamePattern.Create(pattern))
             : null;
         var tags = TagFilters.From(
-            dto.Tags.Select(t => Require(TagFilter.Create(t.Key, t.Values))));
+            dto.Tags.Select(t => Require(TagFilter.Create(t.Key, t.Value))));
         var match = ParseEnum<MatchPolicy>(dto.Match);
 
         return dto switch

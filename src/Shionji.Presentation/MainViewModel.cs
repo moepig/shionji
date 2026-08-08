@@ -31,9 +31,6 @@ public sealed partial class MainViewModel : ObservableObject
     public ObservableCollection<ConfigRowViewModel> Rows { get; } = [];
 
     [ObservableProperty]
-    public partial string FilterText { get; set; } = string.Empty;
-
-    [ObservableProperty]
     public partial ConfigRowViewModel? SelectedRow { get; set; }
 
     /// <summary>右ペインの中身。ConfigDetailViewModel または ConfigEditorViewModel。</summary>
@@ -108,8 +105,6 @@ public sealed partial class MainViewModel : ObservableObject
         RebuildRows();
     }
 
-    partial void OnFilterTextChanged(string value) => RebuildRows();
-
     partial void OnSelectedRowChanged(ConfigRowViewModel? value)
     {
         if (value is null)
@@ -152,15 +147,18 @@ public sealed partial class MainViewModel : ObservableObject
     internal async Task ToggleConnectionAsync(ConfigId id)
     {
         if (_supervisor.GetState(id) is SessionState.Idle or SessionState.Failed)
-        {
-            if (_configService.Find(id) is { } config)
-                await _supervisor.StartAsync(config);
-        }
+            await ConnectAsync(id);
         else
-        {
-            await _supervisor.StopAsync(id);
-        }
+            await DisconnectAsync(id);
     }
+
+    internal async Task ConnectAsync(ConfigId id)
+    {
+        if (_configService.Find(id) is { } config)
+            await _supervisor.StartAsync(config);
+    }
+
+    internal Task DisconnectAsync(ConfigId id) => _supervisor.StopAsync(id);
 
     internal async Task RefreshResolutionAsync(ConfigId id)
     {
@@ -235,18 +233,14 @@ public sealed partial class MainViewModel : ObservableObject
     /// </summary>
     private void RebuildRows()
     {
-        var snapshot = _configService.Configs;
-        var desired = snapshot
-            .Where(c => FilterText.Length == 0 ||
-                        c.Name.Value.Contains(FilterText, StringComparison.OrdinalIgnoreCase))
+        var desired = _configService.Configs
             .OrderBy(c => c.Name.Value, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        var aliveIds = snapshot.Select(c => c.Id).ToHashSet();
-        foreach (var stale in _rowsById.Keys.Where(id => !aliveIds.Contains(id)).ToList())
+        var desiredIds = desired.Select(c => c.Id).ToHashSet();
+        foreach (var stale in _rowsById.Keys.Where(id => !desiredIds.Contains(id)).ToList())
             _rowsById.Remove(stale);
 
-        var desiredIds = desired.Select(c => c.Id).ToHashSet();
         for (var i = Rows.Count - 1; i >= 0; i--)
         {
             if (!desiredIds.Contains(Rows[i].ConfigId))

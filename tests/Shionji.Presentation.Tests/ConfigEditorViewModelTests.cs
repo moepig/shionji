@@ -86,7 +86,7 @@ public class ConfigEditorViewModelTests
         editor.LocalPortText = string.Empty; // 自動割当
         editor.DestinationKind = DestinationKind.ElastiCache;
         editor.DestNamePattern = "prod-redis*";
-        editor.DestTagsText = "Environment=production|staging; Team=platform";
+        editor.DestTagsText = "Environment=production; Team=platform";
         editor.CacheRole = CacheEndpointRole.Reader;
         editor.DestPortText = string.Empty; // 既定ポート
         editor.GatewayKind = GatewayKind.Ec2ByQuery;
@@ -152,11 +152,13 @@ public class ConfigEditorViewModelTests
     [Test]
     public async Task タグ条件の書式()
     {
-        var tags = ConfigEditorViewModel.ParseTags("Env=prod|staging; Team=platform");
+        // 並べた条件はすべて満たす必要がある (AND)。同一キーの複数値 (OR) は扱わない
+        var tags = ConfigEditorViewModel.ParseTags("Env=prod; Team=platform");
         await Assert.That(tags.Items.Count).IsEqualTo(2);
-        await Assert.That(tags.Items[0].Values).IsEquivalentTo(["prod", "staging"]);
+        await Assert.That(tags.Items[0].Key).IsEqualTo("Env");
+        await Assert.That(tags.Items[0].Value).IsEqualTo("prod");
 
         await Assert.That(ConfigEditorViewModel.ParseTags("  ").IsEmpty).IsTrue();
-        await Assert.That(ConfigEditorViewModel.FormatTags(tags)).IsEqualTo("Env=prod|staging; Team=platform");
+        await Assert.That(ConfigEditorViewModel.FormatTags(tags)).IsEqualTo("Env=prod; Team=platform");
     }
 }

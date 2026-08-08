@@ -75,6 +75,14 @@ public sealed partial class ConfigDetailViewModel(
     [ObservableProperty]
     public partial bool IsConnected { get; set; }
 
+    /// <summary>接続を開始できる状態か (未接続 / 失敗)。</summary>
+    [ObservableProperty]
+    public partial bool CanConnect { get; set; }
+
+    /// <summary>切断できる状態か (解決中 / 起動中 / 確立 / 再接続待ち)。</summary>
+    [ObservableProperty]
+    public partial bool CanDisconnect { get; set; }
+
     [ObservableProperty]
     public partial StatusKind Status { get; set; }
 
@@ -91,7 +99,10 @@ public sealed partial class ConfigDetailViewModel(
     public ObservableCollection<string> LogLines { get; } = [];
 
     [RelayCommand]
-    private Task ToggleConnectionAsync() => owner.ToggleConnectionAsync(ConfigId);
+    private Task ConnectAsync() => owner.ConnectAsync(ConfigId);
+
+    [RelayCommand]
+    private Task DisconnectAsync() => owner.DisconnectAsync(ConfigId);
 
     [RelayCommand]
     private Task RefreshResolutionAsync() => owner.RefreshResolutionAsync(ConfigId);
@@ -195,6 +206,8 @@ public sealed partial class ConfigDetailViewModel(
             or SessionState.Starting
             or SessionState.Established
             or SessionState.Reconnecting;
+        CanConnect = state is SessionState.Idle or SessionState.Failed;
+        CanDisconnect = IsConnected;
         SessionText = SessionSummary(state);
         LocalEndpoint = state is SessionState.Established established
             ? $"localhost:{established.Plan.LocalPort.Value}"

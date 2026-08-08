@@ -63,7 +63,7 @@ public abstract class QueryDto
 public sealed class TagFilterDto
 {
     public string Key { get; set; } = string.Empty;
-    public List<string> Values { get; set; } = [];
+    public string Value { get; set; } = string.Empty;
 }
 
 public sealed class ElastiCacheQueryDto : QueryDto

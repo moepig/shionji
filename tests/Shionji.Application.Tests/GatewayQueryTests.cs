@@ -44,7 +44,7 @@ public class GatewayQueryTests
         var harness = new Harness();
         var ec2Query = new Ec2Query(
             NamePattern.Create("bastion-*").Value,
-            TagFilters.Of(TagFilter.Create("Env", ["prod"]).Value),
+            TagFilters.Of(TagFilter.Create("Env", "prod").Value),
             MatchPolicy.PickFirst);
         var config = ConfigWithGateway(new GatewaySpec.Ec2(new Ec2Selector.ByQuery(ec2Query)));
 
