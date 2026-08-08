@@ -67,17 +67,13 @@ public partial class App : Microsoft.UI.Xaml.Application
 
         services.AddSingleton<IClock, SystemClock>();
 
-        // 保存先の指定を先に読む (以降のパスはすべてこれを通す)
-        var locationsStore = new StorageLocationsStore();
-        var locations = locationsStore.Load();
-        services.AddSingleton(locationsStore);
-
-        var settingsStore = new AppSettingsStore(locations.SettingsFilePath);
-        settingsStore.Load();
+        // アプリ設定を先に読む (保存先の指定もここに入っている)
+        var settingsStore = new AppSettingsStore();
+        var settings = settingsStore.Load();
         services.AddSingleton(settingsStore);
 
         // ログはファイルと画面のステータスバーの両方へ流す
-        var logDirectory = locations.ResolvedLogDirectory;
+        var logDirectory = AppPaths.ResolveLogDirectory(settings);
         var activityLog = new ActivityLog(new SystemClock());
         services.AddSingleton(activityLog);
         services.AddSingleton<IFileLocationService>(new WinUiFileLocationService(logDirectory));
@@ -109,7 +105,7 @@ public partial class App : Microsoft.UI.Xaml.Application
             services.AddSingleton<ISsoLoginService>(_ => new SsoLoginService());
             services.AddSingleton<IForwardingConfigRepository>(sp =>
                 new JsonForwardingConfigRepository(
-                    locations.ConfigsFilePath,
+                    AppPaths.ResolveConfigsFilePath(settings),
                     sp.GetService<ILogger<JsonForwardingConfigRepository>>()));
         }
 

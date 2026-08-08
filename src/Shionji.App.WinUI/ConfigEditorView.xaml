@@ -8,7 +8,6 @@
         <local:BoolToVisibilityConverter x:Key="BoolToVis" />
         <local:NullToVisibilityConverter x:Key="NullToVis" />
         <local:EnumIndexConverter x:Key="EnumIndex" />
-        <local:ErrorBrushConverter x:Key="ErrorBrush" />
 
         <Style x:Key="FormSectionStyle" TargetType="TextBlock"
                BasedOn="{StaticResource BodyStrongTextBlockStyle}">
@@ -144,10 +143,15 @@
                         <ProgressRing IsActive="{Binding IsTestingSearch}" Width="18" Height="18"
                                       VerticalAlignment="Center" />
                     </StackPanel>
-                    <TextBlock Text="{Binding SearchTestResult}" TextWrapping="Wrap"
-                               IsTextSelectionEnabled="True"
-                               Foreground="{Binding SearchTestFailed, Converter={StaticResource ErrorBrush}}"
-                               Visibility="{Binding SearchTestResult, Converter={StaticResource NullToVis}}" />
+                    <!-- 失敗したときだけ赤い方を重ねる (テーマ既定の文字色を失わないため) -->
+                    <Grid>
+                        <TextBlock Text="{Binding SearchTestResult}" TextWrapping="Wrap"
+                                   IsTextSelectionEnabled="True"
+                                   Visibility="{Binding SearchTestResult, Converter={StaticResource NullToVis}}" />
+                        <TextBlock Text="{Binding SearchTestResult}" TextWrapping="Wrap"
+                                   IsTextSelectionEnabled="True" Foreground="IndianRed"
+                                   Visibility="{Binding SearchTestFailed, Converter={StaticResource BoolToVis}}" />
+                    </Grid>
                     <ItemsControl ItemsSource="{Binding SearchTestCandidates}" Margin="12,0,0,0" />
                 </StackPanel>
 

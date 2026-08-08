@@ -21,7 +21,7 @@ public sealed class JsonForwardingConfigRepository(
 
     private readonly SemaphoreSlim _fileLock = new(1, 1);
 
-    public static string DefaultPath => Path.Combine(StorageLocations.DefaultDirectory, "configs.json");
+    public static string DefaultPath => Path.Combine(AppPaths.DefaultDirectory, AppPaths.ConfigsFileName);
 
     public async Task<IReadOnlyList<ForwardingConfig>> LoadAllAsync(CancellationToken cancellationToken = default)
     {

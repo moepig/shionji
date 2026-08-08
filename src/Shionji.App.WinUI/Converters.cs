@@ -44,18 +44,6 @@ public sealed partial class ActivityBrushConverter : IValueConverter
         throw new NotSupportedException();
 }
 
-/// <summary>true のときだけエラー色にする。既定色は継承させたいので null を返す。</summary>
-public sealed partial class ErrorBrushConverter : IValueConverter
-{
-    private static readonly SolidColorBrush Error = new(Colors.IndianRed);
-
-    public object? Convert(object value, Type targetType, object parameter, string language) =>
-        value is true ? Error : null;
-
-    public object ConvertBack(object value, Type targetType, object parameter, string language) =>
-        throw new NotSupportedException();
-}
-
 /// <summary>bool → Visibility。parameter="Invert" で反転。</summary>
 public sealed partial class BoolToVisibilityConverter : IValueConverter
 {

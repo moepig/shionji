@@ -17,9 +17,10 @@ public class AppSettingsViewModelTests
         var settings = ui.SettingsWindow.Last;
         await Assert.That(settings.Theme).IsEqualTo(AppTheme.Dark);
         await Assert.That(settings.LogDirectory).IsEqualTo(@"D:\shionji\logs");
-        await Assert.That(settings.SettingsDirectory).IsEqualTo(@"D:\shionji\conf");
         await Assert.That(settings.ConfigsDirectory).IsEqualTo(@"D:\shionji\conf");
         await Assert.That(settings.ConfigsFileName).IsEqualTo("configs.json");
+        // アプリ設定ファイルの置き場所は固定なので表示のみ
+        await Assert.That(settings.SettingsFilePath).IsEqualTo(@"D:\shionji\conf\appsettings.json");
     }
 
     [Test]
@@ -131,6 +132,18 @@ public class AppSettingsViewModelTests
         await settings.BrowseLogCommand.ExecuteAsync(null);
 
         await Assert.That(settings.LogDirectory).IsEqualTo(before);
+    }
+
+    [Test]
+    public async Task アプリ設定のフォルダを開くのは固定の場所に対して行う()
+    {
+        var ui = new UiHarness();
+        ui.AppSettings.SettingsFilePath = @"H:\固定\appsettings.json";
+        ui.Main.ShowSettingsCommand.Execute(null);
+
+        ui.SettingsWindow.Last.OpenSettingsCommand.Execute(null);
+
+        await Assert.That(ui.FileLocation.OpenedFolders.Single()).IsEqualTo(@"H:\固定");
     }
 
     [Test]
