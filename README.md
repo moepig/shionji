@@ -10,7 +10,7 @@ AWS Session Manager 専用のポートフォワード管理 GUI (Windows / WinUI
 - リソースクエリ: 名前 glob (`*` `?`) + タグ条件で ElastiCache / Aurora / EC2 / ECS を解決。複数一致 (Ambiguous) は候補一覧を表示
 - 踏み台: EC2 インスタンス (ID 直接指定 / 検索) と ECS タスク (ECS Exec)。EC2 / ECS 転送先への直接セッションも可
 - 自動再接続 (指数バックオフ 2s→30s、上限 5 回)、起動時自動接続、タスクトレイ常駐、切断時トースト通知
-- SSO トークン切れを検知し `aws sso login --profile <name>` を案内
+- SSO トークン切れを検知し、詳細ペインの「SSO ログイン」ボタンから**アプリ内でブラウザ承認ログイン**できる (SDK のデバイス認可フロー。トークンは AWS CLI と `~/.aws/sso/cache` を共有するため CLI 側もログイン済みになる)。ログイン成功後は自動で再解決 / 再接続
 - `--demo` でフェイク実装によるデモモード (AWS 不要)
 
 ## アーキテクチャ
@@ -86,7 +86,7 @@ dotnet build src/Shionji.App.WinUI/Shionji.App.WinUI.csproj
    redis-cli -p 16379 ping
    ```
 
-7. **異常系の確認** — SSO トークン失効後に接続し `aws sso login` 案内が出ること、確立中に踏み台インスタンスを停止して自動再接続 (設定で有効時) とトースト通知が動くこと。
+7. **異常系の確認** — SSO トークン失効後に接続し、詳細ペインの「SSO ログイン」ボタンでブラウザ承認 → 自動で再接続されること (`aws sts get-caller-identity --profile my-dev` で CLI 側もログイン済みになっていること)。確立中に踏み台インスタンスを停止して自動再接続 (設定で有効時) とトースト通知が動くこと。
 
 必要な IAM 権限 (最低限): `ssm:StartSession` / `ssm:TerminateSession` と、使用するクエリに応じた `ec2:DescribeInstances`, `rds:DescribeDBClusters`, `elasticache:Describe*`, `elasticache:ListTagsForResource`, `ecs:ListTasks`, `ecs:DescribeTasks`。踏み台側には SSM Agent (EC2) / ECS Exec 有効化 (ECS) が必要。
 

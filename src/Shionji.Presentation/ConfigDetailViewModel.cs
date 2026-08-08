@@ -46,6 +46,13 @@ public sealed partial class ConfigDetailViewModel(
     [ObservableProperty]
     public partial StatusKind Status { get; set; }
 
+    /// <summary>資格情報エラー中で、アプリ内 SSO ログインを提示できる。</summary>
+    [ObservableProperty]
+    public partial bool CanSsoLogin { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsLoggingIn { get; set; }
+
     /// <summary>Ambiguous 時の候補一覧。</summary>
     public ObservableCollection<string> Candidates { get; } = [];
 
@@ -66,6 +73,22 @@ public sealed partial class ConfigDetailViewModel(
 
     [RelayCommand]
     private void Edit() => owner.ShowEditor(ConfigId);
+
+    /// <summary>ブラウザ承認込みの SSO ログイン。完了後は再解決 / 再接続される。</summary>
+    [RelayCommand]
+    private async Task SsoLoginAsync()
+    {
+        IsLoggingIn = true;
+        try
+        {
+            if (await owner.SsoLoginAsync(ConfigId) is { } error)
+                ErrorText = $"[{PhaseLabel(error.Phase)}] {error.Message}";
+        }
+        finally
+        {
+            IsLoggingIn = false;
+        }
+    }
 
     [RelayCommand]
     private Task DeleteAsync() => owner.DeleteConfigAsync(ConfigId);
@@ -100,6 +123,7 @@ public sealed partial class ConfigDetailViewModel(
             ? $"localhost:{established.Plan.LocalPort.Value}"
             : null;
         ErrorText = ComposeError(state, view);
+        CanSsoLogin = HasCredentialsError(state, view);
 
         Candidates.Clear();
         foreach (var candidate in CollectCandidates(view))
@@ -152,6 +176,12 @@ public sealed partial class ConfigDetailViewModel(
 
         return null;
     }
+
+    private static bool HasCredentialsError(SessionState state, ConfigResolutionView? view) =>
+        state is SessionState.Failed { Error.Phase: FailurePhase.Credentials }
+        || state is SessionState.Reconnecting { Cause.Phase: FailurePhase.Credentials }
+        || view?.Destination is ResolutionOutcome.Failed { Error.Phase: FailurePhase.Credentials }
+        || view?.Gateway is ResolutionOutcome.Failed { Error.Phase: FailurePhase.Credentials };
 
     public static string PhaseLabel(FailurePhase phase) => phase switch
     {

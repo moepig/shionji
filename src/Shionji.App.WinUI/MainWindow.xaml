@@ -47,6 +47,14 @@
                                    Foreground="IndianRed"
                                    Visibility="{Binding ErrorText, Converter={StaticResource NullToVis}}" />
 
+                        <StackPanel Orientation="Horizontal" Spacing="8"
+                                    Visibility="{Binding CanSsoLogin, Converter={StaticResource BoolToVis}}">
+                            <Button Content="SSO ログイン" Command="{Binding SsoLoginCommand}" />
+                            <TextBlock Text="ブラウザで承認してください…" VerticalAlignment="Center"
+                                       Opacity="0.7"
+                                       Visibility="{Binding IsLoggingIn, Converter={StaticResource BoolToVis}}" />
+                        </StackPanel>
+
                         <ItemsControl ItemsSource="{Binding Candidates}" Margin="12,0,0,0" />
 
                         <StackPanel Orientation="Horizontal" Spacing="8"
