@@ -67,16 +67,20 @@ public partial class App : Microsoft.UI.Xaml.Application
 
         services.AddSingleton<IClock, SystemClock>();
 
-        var settingsStore = new AppSettingsStore(AppSettingsStore.DefaultPath);
+        // 保存先の指定を先に読む (以降のパスはすべてこれを通す)
+        var locationsStore = new StorageLocationsStore();
+        var locations = locationsStore.Load();
+        services.AddSingleton(locationsStore);
+
+        var settingsStore = new AppSettingsStore(locations.SettingsFilePath);
         settingsStore.Load();
         services.AddSingleton(settingsStore);
 
         // ログはファイルと画面のステータスバーの両方へ流す
-        var logDirectory = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Shionji", "logs");
+        var logDirectory = locations.ResolvedLogDirectory;
         var activityLog = new ActivityLog(new SystemClock());
         services.AddSingleton(activityLog);
-        services.AddSingleton<ILogLocationService>(new WinUiLogLocationService(logDirectory));
+        services.AddSingleton<IFileLocationService>(new WinUiFileLocationService(logDirectory));
         services.AddLogging(builder =>
         {
             builder.SetMinimumLevel(LogLevel.Information);
@@ -105,7 +109,7 @@ public partial class App : Microsoft.UI.Xaml.Application
             services.AddSingleton<ISsoLoginService>(_ => new SsoLoginService());
             services.AddSingleton<IForwardingConfigRepository>(sp =>
                 new JsonForwardingConfigRepository(
-                    JsonForwardingConfigRepository.DefaultPath,
+                    locations.ConfigsFilePath,
                     sp.GetService<ILogger<JsonForwardingConfigRepository>>()));
         }
 
@@ -118,9 +122,26 @@ public partial class App : Microsoft.UI.Xaml.Application
         services.AddSingleton<IUiDispatcher, WinUiDispatcher>();
         services.AddSingleton<INotificationService, WinUiNotificationService>();
         services.AddSingleton<IClipboardService, WinUiClipboardService>();
+
+        var themeHost = new ThemeHost();
+        themeHost.Apply(ThemeOf(settingsStore.Current.Theme));
+        services.AddSingleton(themeHost);
         services.AddSingleton<IConfigEditorWindowService, WinUiConfigEditorWindowService>();
+        services.AddSingleton<ISettingsWindowService, WinUiSettingsWindowService>();
+        services.AddSingleton<IAppSettingsService, WinUiAppSettingsService>();
+        services.AddSingleton<IFolderPickerService>(
+            new WinUiFolderPickerService(() => WinRT.Interop.WindowNative.GetWindowHandle(_window!)));
+        services.AddSingleton<AppSettingsContext>();
         services.AddSingleton<MainViewModel>();
 
         return services.BuildServiceProvider();
     }
+
+    private static Microsoft.UI.Xaml.ElementTheme ThemeOf(string? saved) =>
+        WinUiAppSettingsService.ParseTheme(saved) switch
+        {
+            AppTheme.Light => Microsoft.UI.Xaml.ElementTheme.Light,
+            AppTheme.Dark => Microsoft.UI.Xaml.ElementTheme.Dark,
+            _ => Microsoft.UI.Xaml.ElementTheme.Default,
+        };
 }

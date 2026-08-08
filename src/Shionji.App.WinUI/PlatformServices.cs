@@ -66,20 +66,33 @@ public sealed class WinUiClipboardService : IClipboardService
     }
 }
 
-/// <summary>ログの保存先をエクスプローラーで開く。</summary>
-public sealed class WinUiLogLocationService(string logDirectory) : ILogLocationService
+/// <summary>保存先をエクスプローラーで開く。</summary>
+public sealed class WinUiFileLocationService(string logDirectory) : IFileLocationService
 {
     public string LogDirectory { get; } = logDirectory;
 
     public void OpenLogLocation()
     {
+        // 当日のログがあればそれを選択した状態で開く
+        var today = Path.Combine(LogDirectory, $"shionji-{DateTime.Now:yyyyMMdd}.log");
+        if (File.Exists(today))
+            Reveal($"/select,\"{today}\"", LogDirectory);
+        else
+            OpenFolder(LogDirectory);
+    }
+
+    public void OpenFolder(string directory)
+    {
+        if (string.IsNullOrWhiteSpace(directory))
+            return;
+        Reveal($"\"{directory}\"", directory);
+    }
+
+    private static void Reveal(string arguments, string directoryToCreate)
+    {
         try
         {
-            Directory.CreateDirectory(LogDirectory);
-
-            // 当日のログがあればそれを選択した状態で開く
-            var today = Path.Combine(LogDirectory, $"shionji-{DateTime.Now:yyyyMMdd}.log");
-            var arguments = File.Exists(today) ? $"/select,\"{today}\"" : $"\"{LogDirectory}\"";
+            Directory.CreateDirectory(directoryToCreate);
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe", arguments)
             {
                 UseShellExecute = true,

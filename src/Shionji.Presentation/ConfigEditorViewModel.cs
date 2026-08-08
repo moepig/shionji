@@ -36,7 +36,7 @@ public sealed partial class ConfigEditorViewModel : ObservableObject
     /// <summary>編集が終わった (保存 / キャンセル)。別ウィンドウで開いている場合はこれで閉じる。</summary>
     public event EventHandler? Closed;
 
-    public string WindowTitle => IsNew ? "設定の追加" : "設定の編集";
+    public string WindowTitle => IsNew ? "接続先設定の追加" : "接続先設定の編集";
 
     private ConfigEditorViewModel(MainViewModel owner, ConfigId id, bool isNew)
     {

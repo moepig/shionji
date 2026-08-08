@@ -38,13 +38,65 @@ internal sealed class FakeEditorWindow : IConfigEditorWindowService
     }
 }
 
-internal sealed class FakeLogLocation : ILogLocationService
+internal sealed class FakeFileLocation : IFileLocationService
 {
-    public string LogDirectory => @"C:\fake\logs";
+    public string LogDirectory { get; set; } = @"C:\fake\logs";
 
     public int OpenCount { get; private set; }
 
+    public List<string> OpenedFolders { get; } = [];
+
     public void OpenLogLocation() => OpenCount++;
+
+    public void OpenFolder(string directory) => OpenedFolders.Add(directory);
+}
+
+internal sealed class FakeSettingsWindow : ISettingsWindowService
+{
+    public List<AppSettingsViewModel> Opened { get; } = [];
+
+    public AppSettingsViewModel Last => Opened[^1];
+
+    public void ShowSettings(AppSettingsViewModel settings) => Opened.Add(settings);
+}
+
+internal sealed class FakeFolderPicker : IFolderPickerService
+{
+    /// <summary>次に「選ばれる」フォルダ。null ならキャンセル扱い。</summary>
+    public string? NextFolder { get; set; }
+
+    public List<string?> Requests { get; } = [];
+
+    public Task<string?> PickFolderAsync(string? initialDirectory)
+    {
+        Requests.Add(initialDirectory);
+        return Task.FromResult(NextFolder);
+    }
+}
+
+internal sealed class FakeAppSettings : IAppSettingsService
+{
+    public AppTheme Theme { get; set; } = AppTheme.System;
+    public string LogDirectory { get; set; } = @"C:\fake\logs";
+    public string SettingsFilePath { get; set; } = @"C:\fake\appsettings.json";
+    public string ConfigsFilePath { get; set; } = @"C:\fake\configs.json";
+    public string BootstrapFilePath => @"C:\fake\locations.json";
+
+    /// <summary>Save が返す事情。保存はできたが完全には反映できなかった場合に使う。</summary>
+    public List<string> Problems { get; } = [];
+
+    public AppTheme? PreviewedTheme { get; private set; }
+    public List<(AppTheme Theme, string Log, string Settings, string Configs)> Saved { get; } = [];
+
+    public void PreviewTheme(AppTheme theme) => PreviewedTheme = theme;
+
+    public IReadOnlyList<string> Save(
+        AppTheme theme, string logDirectory, string settingsDirectory, string configsDirectory)
+    {
+        Saved.Add((theme, logDirectory, settingsDirectory, configsDirectory));
+        Theme = theme;
+        return Problems;
+    }
 }
 
 internal sealed class FakeSsoLogin : Shionji.Domain.Ports.ISsoLoginService
@@ -74,8 +126,11 @@ internal sealed class UiHarness
     public RecordingNotificationService Notifications { get; } = new();
     public FakeClipboard Clipboard { get; } = new();
     public FakeSsoLogin SsoLogin { get; } = new();
-    public FakeLogLocation LogLocation { get; } = new();
+    public FakeFileLocation FileLocation { get; } = new();
     public FakeEditorWindow EditorWindow { get; } = new();
+    public FakeAppSettings AppSettings { get; } = new();
+    public FakeFolderPicker FolderPicker { get; } = new();
+    public FakeSettingsWindow SettingsWindow { get; } = new();
     public MainViewModel Main { get; }
 
     public UiHarness(Shionji.Application.IRetryScheduler? scheduler = null)
@@ -96,8 +151,9 @@ internal sealed class UiHarness
             SsoLogin,
             App.Logs,
             App.Activity,
-            LogLocation,
+            FileLocation,
             EditorWindow,
-            App.Catalog);
+            App.Catalog,
+            new AppSettingsContext(AppSettings, FolderPicker, SettingsWindow));
     }
 }

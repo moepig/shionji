@@ -5,8 +5,26 @@
     xmlns:local="using:Shionji.App.WinUI"
     Title="Shionji">
 
-    <Grid x:Name="RootGrid" Padding="12" RowSpacing="12">
+    <!-- Window 自体の背景はテーマ指定に追従しないため、根に明示する
+         (でないとダークテーマで白背景に白文字になる) -->
+    <Grid x:Name="RootGrid" Padding="12" RowSpacing="12"
+          Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
         <Grid.Resources>
+            <ResourceDictionary>
+                <ResourceDictionary.ThemeDictionaries>
+                    <!-- 詳細ペインの中身。カードより一段明るくして、見出し帯と区別する -->
+                    <ResourceDictionary x:Key="Light">
+                        <SolidColorBrush x:Key="DetailBodyBackgroundBrush" Color="#FBFBFB" />
+                    </ResourceDictionary>
+                    <ResourceDictionary x:Key="Dark">
+                        <SolidColorBrush x:Key="DetailBodyBackgroundBrush" Color="#33333A" />
+                    </ResourceDictionary>
+                    <ResourceDictionary x:Key="HighContrast">
+                        <SolidColorBrush x:Key="DetailBodyBackgroundBrush"
+                                         Color="{ThemeResource SystemColorWindowColor}" />
+                    </ResourceDictionary>
+                </ResourceDictionary.ThemeDictionaries>
+
             <local:StatusBrushConverter x:Key="StatusBrush" />
             <local:ActivityBrushConverter x:Key="ActivityBrush" />
             <local:BoolToVisibilityConverter x:Key="BoolToVis" />
@@ -106,7 +124,7 @@
                     <StackPanel Spacing="8">
                         <TextBlock Text="{Binding Name}" Style="{StaticResource SubtitleTextBlockStyle}" />
 
-                        <TextBlock Text="設定内容" Style="{StaticResource SectionHeadingStyle}" />
+                        <TextBlock Text="接続先設定" Style="{StaticResource SectionHeadingStyle}" />
                         <Grid ColumnSpacing="12" RowSpacing="6">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" MinWidth="92" />
@@ -238,14 +256,31 @@
             </DataTemplate>
 
 
+            </ResourceDictionary>
         </Grid.Resources>
 
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <Grid ColumnSpacing="12">
+        <!-- ツールバー: アプリ全体に対する操作。一覧固有の操作は一覧ペイン側にある -->
+        <CommandBar DefaultLabelPosition="Right" HorizontalAlignment="Left"
+                    Background="Transparent" IsOpen="False" OverflowButtonVisibility="Collapsed">
+            <AppBarButton Label="設定" Command="{Binding ShowSettingsCommand}">
+                <AppBarButton.Icon>
+                    <FontIcon Glyph="&#xE713;" />
+                </AppBarButton.Icon>
+            </AppBarButton>
+            <AppBarButton Label="ログフォルダ" Command="{Binding OpenLogLocationCommand}">
+                <AppBarButton.Icon>
+                    <FontIcon Glyph="&#xE838;" />
+                </AppBarButton.Icon>
+            </AppBarButton>
+        </CommandBar>
+
+        <Grid Grid.Row="1" ColumnSpacing="12">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="380" />
                 <ColumnDefinition Width="*" />
@@ -289,7 +324,7 @@
                               ItemTemplate="{StaticResource RowTemplate}"
                               SelectionMode="Single" />
                     <Border Grid.Row="2" Style="{StaticResource PaneFooterStyle}">
-                        <Button Content="＋ 設定を追加" HorizontalAlignment="Stretch"
+                        <Button Content="＋ 接続先設定を追加" HorizontalAlignment="Stretch"
                                 HorizontalContentAlignment="Center"
                                 Command="{Binding AddConfigCommand}" />
                     </Border>
@@ -309,7 +344,7 @@
 
                     <!-- 見出しと中身を色で分ける。角丸はカードの内側に収める -->
                     <Border Grid.Row="1" Padding="12" CornerRadius="0,0,5,5"
-                            Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}">
+                            Background="{ThemeResource DetailBodyBackgroundBrush}">
                         <Grid>
                             <!-- Content が null でもテンプレートは適用されるため、明示的に隠す
                                  (でないと値が空のままの詳細フォームが出てしまう) -->
@@ -322,7 +357,7 @@
                             <!-- 何も選択していないときに空白の理由を示す -->
                             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6"
                                         Visibility="{Binding DetailContent, Converter={StaticResource NullToVis}, ConverterParameter=Invert}">
-                                <TextBlock Text="設定を選択してください" HorizontalAlignment="Center"
+                                <TextBlock Text="接続先設定を選択してください" HorizontalAlignment="Center"
                                            Style="{StaticResource BodyTextBlockStyle}"
                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                 <TextBlock Text="左の一覧から選ぶと、検索結果・接続状態・ログをここに表示します"
@@ -337,7 +372,7 @@
         </Grid>
 
         <!-- ステータスバー: 最新の動作を 1 行で出し、そこから履歴とログファイルへ辿れる -->
-        <Border Grid.Row="1" Padding="10,6" CornerRadius="4"
+        <Border Grid.Row="2" Padding="10,6" CornerRadius="4"
                 Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}">
             <Grid ColumnSpacing="8">
                 <Grid.ColumnDefinitions>

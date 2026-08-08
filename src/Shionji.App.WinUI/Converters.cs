@@ -88,7 +88,7 @@ public sealed partial class NullToVisibilityConverter : IValueConverter
 
 /// <summary>
 /// enum ⇔ ComboBox.SelectedIndex。parameter に enum 名を指定する
-/// (DestinationKind / GatewayKind / CacheRole / AuroraRole)。項目順は enum 定義順。
+/// (DestinationKind / GatewayKind / CacheRole / AuroraRole / AppTheme)。項目順は enum 定義順。
 /// </summary>
 public sealed partial class EnumIndexConverter : IValueConverter
 {
@@ -98,12 +98,19 @@ public sealed partial class EnumIndexConverter : IValueConverter
     public object ConvertBack(object value, Type targetType, object parameter, string language)
     {
         var index = value is int i ? i : 0;
+
+        // 選択なし。テーマ変更などでテンプレートが組み直されると一時的にこうなるので、
+        // 値を書き戻さない (書き戻すと未定義の enum 値で上書きされてしまう)
+        if (index < 0)
+            return DependencyProperty.UnsetValue;
+
         return (parameter as string) switch
         {
             "DestinationKind" => (DestinationKind)index,
             "GatewayKind" => (GatewayKind)index,
             "CacheRole" => (Domain.Configuration.CacheEndpointRole)index,
             "AuroraRole" => (Domain.Configuration.AuroraEndpointRole)index,
+            "AppTheme" => (AppTheme)index,
             _ => index,
         };
     }

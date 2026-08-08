@@ -10,7 +10,7 @@ public sealed partial class ConfigEditorWindow : Window
     private static readonly string IconPath =
         Path.Combine(AppContext.BaseDirectory, "Assets", "shionji.ico");
 
-    public ConfigEditorWindow(ConfigEditorViewModel editor)
+    public ConfigEditorWindow(ConfigEditorViewModel editor, ThemeHost themeHost)
     {
         InitializeComponent();
 
@@ -20,6 +20,7 @@ public sealed partial class ConfigEditorWindow : Window
         if (File.Exists(IconPath))
             AppWindow.SetIcon(IconPath);
         AppWindow.Resize(new Windows.Graphics.SizeInt32(620, 900));
+        themeHost.Register(this);
 
         // 保存 / キャンセルでウィンドウを閉じる
         editor.Closed += (_, _) => DispatcherQueue.TryEnqueue(Close);
@@ -27,7 +28,7 @@ public sealed partial class ConfigEditorWindow : Window
 }
 
 /// <summary>編集ウィンドウを開く。すでに開いていれば前面に出すだけにする。</summary>
-public sealed class WinUiConfigEditorWindowService : IConfigEditorWindowService
+public sealed class WinUiConfigEditorWindowService(ThemeHost themeHost) : IConfigEditorWindowService
 {
     private ConfigEditorWindow? _current;
 
@@ -35,7 +36,7 @@ public sealed class WinUiConfigEditorWindowService : IConfigEditorWindowService
     {
         _current?.Close();
 
-        var window = new ConfigEditorWindow(editor);
+        var window = new ConfigEditorWindow(editor, themeHost);
         _current = window;
         window.Closed += (_, _) =>
         {
