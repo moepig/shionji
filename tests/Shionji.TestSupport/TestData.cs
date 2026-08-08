@@ -45,7 +45,7 @@ public static class TestData
             new ConfigOptions(autoReconnect, connectOnLaunch)).Value;
 
     /// <summary>ElastiCache クエリ転送先 + EC2 クエリ踏み台の設定 (両方の解決が必要)。</summary>
-    public static ForwardingConfig QueryConfig(bool autoReconnect = false) =>
+    public static ForwardingConfig QueryConfig(bool autoReconnect = false, bool connectOnLaunch = false) =>
         ForwardingConfig.Create(
             ConfigId.New(),
             ConfigName.Create("query-test").Value,
@@ -55,7 +55,7 @@ public static class TestData
                 new ElastiCacheQuery(null, TagFilters.Empty, MatchPolicy.RequireSingle, CacheEndpointRole.Primary),
                 PortSelection.FromResource.Instance),
             new GatewaySpec.Ec2(new Ec2Selector.ByQuery(new Ec2Query(null, TagFilters.Empty, MatchPolicy.RequireSingle))),
-            new ConfigOptions(autoReconnect, ConnectOnLaunch: false)).Value;
+            new ConfigOptions(autoReconnect, connectOnLaunch)).Value;
 }
 
 public static class Wait
