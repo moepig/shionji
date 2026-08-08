@@ -1,0 +1,11 @@
+{
+  "profiles": {
+    "Shionji": {
+      "commandName": "Project"
+    },
+    "Shionji (デモモード)": {
+      "commandName": "Project",
+      "commandLineArgs": "--demo"
+    }
+  }
+}
