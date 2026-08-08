@@ -24,6 +24,41 @@ public class AppSettingsViewModelTests
     }
 
     [Test]
+    public async Task 大項目はひとつだけ開いていて表示から始まる()
+    {
+        var settings = Open(out _);
+
+        await Assert.That(settings.Section).IsEqualTo(SettingsSection.Display);
+        await Assert.That(settings.SectionTitle).IsEqualTo("表示");
+        await Assert.That(settings.IsDisplaySection).IsTrue();
+        await Assert.That(settings.IsLogSection).IsFalse();
+        await Assert.That(settings.IsFilesSection).IsFalse();
+
+        settings.Section = SettingsSection.Files;
+
+        await Assert.That(settings.SectionTitle).IsEqualTo("設定");
+        await Assert.That(settings.IsFilesSection).IsTrue();
+        await Assert.That(settings.IsDisplaySection).IsFalse();
+    }
+
+    [Test]
+    public async Task 大項目を切り替えても入力中の値は残る()
+    {
+        // 節をまたいで入力してから保存できること
+        var settings = Open(out var fake);
+        settings.Section = SettingsSection.Log;
+        settings.LogDirectory = @"E:\logs";
+        settings.Section = SettingsSection.Files;
+        settings.ConfigsDirectory = @"E:\conf";
+
+        settings.SaveCommand.Execute(null);
+
+        var saved = fake.Saved.Single();
+        await Assert.That(saved.Log).IsEqualTo(@"E:\logs");
+        await Assert.That(saved.Configs).IsEqualTo(@"E:\conf");
+    }
+
+    [Test]
     public async Task テーマは選んだ時点で見た目に反映される()
     {
         var settings = Open(out var fake);

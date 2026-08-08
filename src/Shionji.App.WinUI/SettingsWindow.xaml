@@ -5,16 +5,10 @@
     xmlns:local="using:Shionji.App.WinUI">
 
     <!-- Window 自体の背景はテーマ指定に追従しないため、根に明示する -->
-    <Grid x:Name="RootGrid" Padding="16" RowSpacing="12"
-          Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+    <Grid x:Name="RootGrid" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
         <Grid.Resources>
             <local:BoolToVisibilityConverter x:Key="BoolToVis" />
             <local:EnumIndexConverter x:Key="EnumIndex" />
-
-            <Style x:Key="SettingsSectionStyle" TargetType="TextBlock"
-                   BasedOn="{StaticResource BodyStrongTextBlockStyle}">
-                <Setter Property="Margin" Value="0,8,0,0" />
-            </Style>
 
             <Style x:Key="HintStyle" TargetType="TextBlock"
                    BasedOn="{StaticResource CaptionTextBlockStyle}">
@@ -23,76 +17,114 @@
             </Style>
         </Grid.Resources>
 
-        <Grid.RowDefinitions>
-            <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
+        <NavigationView x:Name="Nav"
+                        PaneDisplayMode="Left" OpenPaneLength="180"
+                        IsSettingsVisible="False" IsBackButtonVisible="Collapsed"
+                        IsPaneToggleButtonVisible="False"
+                        SelectionChanged="OnSectionChanged">
+            <NavigationView.MenuItems>
+                <NavigationViewItem Content="表示" Tag="Display" IsSelected="True">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE790;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="ログ" Tag="Log">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE9D9;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="設定" Tag="Files">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE8B7;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+            </NavigationView.MenuItems>
 
-        <ScrollViewer>
-            <StackPanel Spacing="10">
+            <Grid x:Name="Body" Padding="20,12,20,16" RowSpacing="12">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
 
-                <TextBlock Text="表示" Style="{StaticResource SettingsSectionStyle}" />
-                <ComboBox Header="カラーテーマ" MinWidth="240"
-                          SelectedIndex="{Binding Theme, Mode=TwoWay, Converter={StaticResource EnumIndex}, ConverterParameter=AppTheme}">
-                    <ComboBoxItem Content="システムに従う" />
-                    <ComboBoxItem Content="ライト" />
-                    <ComboBoxItem Content="ダーク" />
-                </ComboBox>
-                <TextBlock Text="選ぶとすぐに反映されます。" Style="{StaticResource HintStyle}" />
+                <TextBlock Text="{Binding SectionTitle}" Style="{StaticResource SubtitleTextBlockStyle}" />
 
-                <TextBlock Text="ログ" Style="{StaticResource SettingsSectionStyle}" />
-                <TextBox Header="ログファイルの保存先 (空で既定)" Text="{Binding LogDirectory, Mode=TwoWay}" />
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <Button Content="参照…" Command="{Binding BrowseLogCommand}" />
-                    <Button Content="フォルダを開く" Command="{Binding OpenLogCommand}" />
+                <ScrollViewer Grid.Row="1">
+                    <Grid>
+                        <!-- 表示 -->
+                        <StackPanel Spacing="10"
+                                    Visibility="{Binding IsDisplaySection, Converter={StaticResource BoolToVis}}">
+                            <ComboBox Header="カラーテーマ" MinWidth="240"
+                                      SelectedIndex="{Binding Theme, Mode=TwoWay, Converter={StaticResource EnumIndex}, ConverterParameter=AppTheme}">
+                                <ComboBoxItem Content="システムに従う" />
+                                <ComboBoxItem Content="ライト" />
+                                <ComboBoxItem Content="ダーク" />
+                            </ComboBox>
+                            <TextBlock Text="選ぶとすぐに反映されます。" Style="{StaticResource HintStyle}" />
+                        </StackPanel>
+
+                        <!-- ログ -->
+                        <StackPanel Spacing="10"
+                                    Visibility="{Binding IsLogSection, Converter={StaticResource BoolToVis}}">
+                            <TextBox Header="ログファイルの保存先 (空で既定)"
+                                     Text="{Binding LogDirectory, Mode=TwoWay}" />
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button Content="参照…" Command="{Binding BrowseLogCommand}" />
+                                <Button Content="フォルダを開く" Command="{Binding OpenLogCommand}" />
+                            </StackPanel>
+                            <TextBlock Text="shionji-yyyyMMdd.log として日付ごとに作られます。"
+                                       Style="{StaticResource HintStyle}" />
+                        </StackPanel>
+
+                        <!-- 設定 -->
+                        <StackPanel Spacing="10"
+                                    Visibility="{Binding IsFilesSection, Converter={StaticResource BoolToVis}}">
+                            <TextBox Header="接続先設定ファイルの保存先 (空で既定)"
+                                     Text="{Binding ConfigsDirectory, Mode=TwoWay}" />
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button Content="参照…" Command="{Binding BrowseConfigsCommand}" />
+                                <Button Content="フォルダを開く" Command="{Binding OpenConfigsCommand}" />
+                            </StackPanel>
+                            <TextBlock Text="{Binding ConfigsFileName}" Style="{StaticResource HintStyle}" />
+
+                            <!-- 保存先の指定もこのファイルに入るため、これ自身は動かせない -->
+                            <TextBlock Text="アプリ設定ファイル" Margin="0,12,0,0" />
+                            <TextBlock Style="{StaticResource HintStyle}"
+                                       Text="{Binding SettingsFilePath}" IsTextSelectionEnabled="True" />
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button Content="フォルダを開く" Command="{Binding OpenSettingsCommand}" />
+                            </StackPanel>
+                            <TextBlock Text="保存先の指定もこのファイルに記録されるため、この置き場所は変更できません。"
+                                       Style="{StaticResource HintStyle}" />
+                        </StackPanel>
+                    </Grid>
+                </ScrollViewer>
+
+                <StackPanel Grid.Row="2" Spacing="8">
+                    <InfoBar IsOpen="{Binding NeedsRestart}" IsClosable="False" Severity="Informational"
+                             Title="保存しました"
+                             Message="保存先の変更はアプリを再起動すると反映されます。" />
+                    <InfoBar IsOpen="{Binding HasProblems}" IsClosable="False" Severity="Warning"
+                             Title="一部反映できませんでした">
+                        <InfoBar.Content>
+                            <ItemsControl ItemsSource="{Binding Problems}" Margin="0,0,0,12">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding}" TextWrapping="Wrap" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </InfoBar.Content>
+                    </InfoBar>
+                    <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                        <Button Content="保存" Style="{StaticResource AccentButtonStyle}"
+                                Command="{Binding SaveCommand}" />
+                        <Button Content="閉じる" Command="{Binding CloseCommand}"
+                                Visibility="{Binding NeedsRestart, Converter={StaticResource BoolToVis}}" />
+                        <Button Content="キャンセル" Command="{Binding CancelCommand}" />
+                    </StackPanel>
                 </StackPanel>
-                <TextBlock Text="shionji-yyyyMMdd.log として日付ごとに作られます。"
-                           Style="{StaticResource HintStyle}" />
-
-                <TextBlock Text="設定" Style="{StaticResource SettingsSectionStyle}" />
-                <TextBox Header="接続先設定ファイルの保存先 (空で既定)"
-                         Text="{Binding ConfigsDirectory, Mode=TwoWay}" />
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <Button Content="参照…" Command="{Binding BrowseConfigsCommand}" />
-                    <Button Content="フォルダを開く" Command="{Binding OpenConfigsCommand}" />
-                </StackPanel>
-                <TextBlock Text="{Binding ConfigsFileName}" Style="{StaticResource HintStyle}" />
-
-                <!-- 保存先の指定もこのファイルに入るため、これ自身は動かせない -->
-                <TextBlock Text="アプリ設定ファイル" Margin="0,8,0,0" />
-                <TextBlock Style="{StaticResource HintStyle}"
-                           Text="{Binding SettingsFilePath}" IsTextSelectionEnabled="True" />
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <Button Content="フォルダを開く" Command="{Binding OpenSettingsCommand}" />
-                </StackPanel>
-                <TextBlock Text="保存先の指定もこのファイルに記録されるため、この置き場所は変更できません。"
-                           Style="{StaticResource HintStyle}" />
-            </StackPanel>
-        </ScrollViewer>
-
-        <StackPanel Grid.Row="1" Spacing="8">
-            <InfoBar IsOpen="{Binding NeedsRestart}" IsClosable="False" Severity="Informational"
-                     Title="保存しました"
-                     Message="保存先の変更はアプリを再起動すると反映されます。" />
-            <InfoBar IsOpen="{Binding HasProblems}" IsClosable="False" Severity="Warning"
-                     Title="一部反映できませんでした">
-                <InfoBar.Content>
-                    <ItemsControl ItemsSource="{Binding Problems}" Margin="0,0,0,12">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding}" TextWrapping="Wrap" />
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </InfoBar.Content>
-            </InfoBar>
-            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
-                <Button Content="保存" Style="{StaticResource AccentButtonStyle}"
-                        Command="{Binding SaveCommand}" />
-                <Button Content="閉じる" Command="{Binding CloseCommand}"
-                        Visibility="{Binding NeedsRestart, Converter={StaticResource BoolToVis}}" />
-                <Button Content="キャンセル" Command="{Binding CancelCommand}" />
-            </StackPanel>
-        </StackPanel>
+            </Grid>
+        </NavigationView>
     </Grid>
 </Window>
