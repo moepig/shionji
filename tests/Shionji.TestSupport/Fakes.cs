@@ -93,6 +93,8 @@ public sealed class FakePortProbe : ILocalPortProbe
 
     public bool IsAvailable(Port port) => !BusyPorts.Contains(port.Value);
 
+    public bool IsListening(Port port) => BusyPorts.Contains(port.Value);
+
     public Result<Port, ErrorDetail> AcquireFreePort() =>
         Result<Port, ErrorDetail>.Success(Port.Create(NextFreePort).Value);
 }

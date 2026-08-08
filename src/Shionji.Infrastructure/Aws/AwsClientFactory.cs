@@ -13,9 +13,16 @@ using Shionji.Domain.ValueObjects;
 namespace Shionji.Infrastructure.Aws;
 
 /// <summary>名前付きプロファイルから資格情報を解決し、リージョン付きの AWS クライアントを作る。</summary>
-public sealed class AwsClientFactory
+/// <param name="endpointOverride">
+/// 全サービスのエンドポイントを差し替える。VPC エンドポイント指定と、
+/// 結合テストでローカルのスタブサーバへ向けるために使う。null なら通常のリージョン解決。
+/// </param>
+/// <param name="profilesLocation">資格情報ファイルのパス。null なら既定の探索順。</param>
+public sealed class AwsClientFactory(string? endpointOverride = null, string? profilesLocation = null)
 {
-    private readonly CredentialProfileStoreChain _chain = new();
+    private readonly CredentialProfileStoreChain _chain = profilesLocation is { Length: > 0 } path
+        ? new CredentialProfileStoreChain(path)
+        : new CredentialProfileStoreChain();
 
     /// <summary>SSO (IAM Identity Center) プロファイルかどうか。エラー文言の出し分けに使う。</summary>
     public bool IsSsoProfile(ProfileName profile) =>
@@ -35,22 +42,40 @@ public sealed class AwsClientFactory
         return Result<AWSCredentials, ErrorDetail>.Success(credentials);
     }
 
-    public Result<T, ErrorDetail> Create<T>(AwsContext aws, Func<AWSCredentials, RegionEndpoint, T> create) =>
-        GetCredentials(aws.Profile)
-            .Map(credentials => create(credentials, RegionEndpoint.GetBySystemName(aws.Region.Value)));
+    private Result<TClient, ErrorDetail> Create<TConfig, TClient>(
+        AwsContext aws, TConfig config, Func<AWSCredentials, TConfig, TClient> create)
+        where TConfig : ClientConfig
+    {
+        return GetCredentials(aws.Profile).Map(credentials =>
+        {
+            if (endpointOverride is { Length: > 0 } url)
+            {
+                config.ServiceURL = url;
+                config.AuthenticationRegion = aws.Region.Value;
+            }
+            else
+            {
+                config.RegionEndpoint = RegionEndpoint.GetBySystemName(aws.Region.Value);
+            }
+
+            return create(credentials, config);
+        });
+    }
 
     public Result<IAmazonSimpleSystemsManagement, ErrorDetail> CreateSsm(AwsContext aws) =>
-        Create<IAmazonSimpleSystemsManagement>(aws, (c, r) => new AmazonSimpleSystemsManagementClient(c, r));
+        Create(aws, new AmazonSimpleSystemsManagementConfig(),
+            (c, cfg) => (IAmazonSimpleSystemsManagement)new AmazonSimpleSystemsManagementClient(c, cfg));
 
     public Result<IAmazonEC2, ErrorDetail> CreateEc2(AwsContext aws) =>
-        Create<IAmazonEC2>(aws, (c, r) => new AmazonEC2Client(c, r));
+        Create(aws, new AmazonEC2Config(), (c, cfg) => (IAmazonEC2)new AmazonEC2Client(c, cfg));
 
     public Result<IAmazonECS, ErrorDetail> CreateEcs(AwsContext aws) =>
-        Create<IAmazonECS>(aws, (c, r) => new AmazonECSClient(c, r));
+        Create(aws, new AmazonECSConfig(), (c, cfg) => (IAmazonECS)new AmazonECSClient(c, cfg));
 
     public Result<IAmazonRDS, ErrorDetail> CreateRds(AwsContext aws) =>
-        Create<IAmazonRDS>(aws, (c, r) => new AmazonRDSClient(c, r));
+        Create(aws, new AmazonRDSConfig(), (c, cfg) => (IAmazonRDS)new AmazonRDSClient(c, cfg));
 
     public Result<IAmazonElastiCache, ErrorDetail> CreateElastiCache(AwsContext aws) =>
-        Create<IAmazonElastiCache>(aws, (c, r) => new AmazonElastiCacheClient(c, r));
+        Create(aws, new AmazonElastiCacheConfig(),
+            (c, cfg) => (IAmazonElastiCache)new AmazonElastiCacheClient(c, cfg));
 }

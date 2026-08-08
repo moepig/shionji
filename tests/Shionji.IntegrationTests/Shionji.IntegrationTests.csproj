@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Shionji.IntegrationTests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="TUnit" Version="1.63.25" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Shionji.Application\Shionji.Application.csproj" />
+    <ProjectReference Include="..\..\src\Shionji.Infrastructure\Shionji.Infrastructure.csproj" />
+    <ProjectReference Include="..\Shionji.TestSupport\Shionji.TestSupport.csproj" />
+    <!-- 偽 plugin は子プロセスとして起動するだけなので、参照はビルド順序の担保のみ -->
+    <ProjectReference Include="..\Shionji.FakePlugin\Shionji.FakePlugin.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using Shionji.Domain.Ports;
 using Shionji.Domain.Primitives;
@@ -20,6 +21,20 @@ public sealed class TcpLocalPortProbe : ILocalPortProbe
             return true;
         }
         catch (SocketException)
+        {
+            return false;
+        }
+    }
+
+    public bool IsListening(Port port)
+    {
+        try
+        {
+            return IPGlobalProperties.GetIPGlobalProperties()
+                .GetActiveTcpListeners()
+                .Any(endpoint => endpoint.Port == port.Value);
+        }
+        catch (NetworkInformationException)
         {
             return false;
         }

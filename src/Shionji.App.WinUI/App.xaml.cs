@@ -92,7 +92,7 @@ public partial class App : Microsoft.UI.Xaml.Application
         }
         else
         {
-            services.AddSingleton<AwsClientFactory>();
+            services.AddSingleton(new AwsClientFactory(settingsStore.Current.AwsEndpointOverride));
             services.AddSingleton<IResourceCatalog, AwsResourceCatalog>();
             services.AddSingleton(new SessionManagerPluginLocator(() => settingsStore.Current.PluginPath));
             services.AddSingleton<ITunnelLauncher, SessionManagerPluginLauncher>();
