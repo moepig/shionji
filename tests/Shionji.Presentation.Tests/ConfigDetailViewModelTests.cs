@@ -75,6 +75,46 @@ public class ConfigDetailViewModelTests
     }
 
     [Test]
+    public async Task 接続と切断は状態に応じて片方だけ押せる()
+    {
+        var ui = new UiHarness();
+        await ui.App.Configs.SaveAsync(TestData.StaticConfig(name: "api-db"));
+        ui.Main.SelectedRow = ui.Main.Rows[0];
+        var detail = (ConfigDetailViewModel)ui.Main.DetailContent!;
+
+        // 未接続: 接続できる / 切断できない
+        await Assert.That(detail.CanConnect).IsTrue();
+        await Assert.That(detail.CanDisconnect).IsFalse();
+
+        await detail.ConnectCommand.ExecuteAsync(null);
+
+        // 確立: 接続できない / 切断できる
+        await Assert.That(detail.CanConnect).IsFalse();
+        await Assert.That(detail.CanDisconnect).IsTrue();
+
+        await detail.DisconnectCommand.ExecuteAsync(null);
+
+        await Assert.That(detail.CanConnect).IsTrue();
+        await Assert.That(detail.CanDisconnect).IsFalse();
+    }
+
+    [Test]
+    public async Task 失敗状態からは接続し直せる()
+    {
+        var ui = new UiHarness();
+        ui.App.Probe.BusyPorts.Add(15432);
+        await ui.App.Configs.SaveAsync(TestData.StaticConfig(name: "api-db"));
+        ui.Main.SelectedRow = ui.Main.Rows[0];
+        var detail = (ConfigDetailViewModel)ui.Main.DetailContent!;
+
+        await detail.ConnectCommand.ExecuteAsync(null);
+
+        await Assert.That(detail.Status).IsEqualTo(StatusKind.Failed);
+        await Assert.That(detail.CanConnect).IsTrue();
+        await Assert.That(detail.CanDisconnect).IsFalse();
+    }
+
+    [Test]
     public async Task コピーすると完了表示が出る()
     {
         var ui = new UiHarness();

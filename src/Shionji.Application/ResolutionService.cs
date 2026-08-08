@@ -101,7 +101,7 @@ public sealed class ResolutionService(
         switch (outcome)
         {
             case ResolutionOutcome.Resolved resolved:
-                _log.Audit(LogLevel.Information, $"{name}: {label}を {resolved.Resource.DisplayName} に特定しました",
+                _log.Audit(LogLevel.Information, $"[設定名: {name}] {label}を {resolved.Resource.DisplayName} に特定しました",
                     ("設定", name),
                     ("種別", label),
                     ("リソース", resolved.Resource.DisplayName),
@@ -113,13 +113,13 @@ public sealed class ResolutionService(
                 break;
 
             case ResolutionOutcome.NotFound:
-                _log.Audit(LogLevel.Warning, $"{name}: 条件に一致する{label}が見つかりません",
+                _log.Audit(LogLevel.Warning, $"[設定名: {name}] 条件に一致する{label}が見つかりません",
                     ("設定", name), ("種別", label), ("プロファイル", aws));
                 break;
 
             case ResolutionOutcome.Ambiguous ambiguous:
                 _log.Audit(LogLevel.Warning,
-                    $"{name}: {label}が {ambiguous.Candidates.Count} 件一致しました。条件を絞り込んでください",
+                    $"[設定名: {name}] {label}が {ambiguous.Candidates.Count} 件一致しました。条件を絞り込んでください",
                     ("設定", name),
                     ("種別", label),
                     ("候補数", ambiguous.Candidates.Count),
@@ -128,7 +128,7 @@ public sealed class ResolutionService(
                 break;
 
             case ResolutionOutcome.Failed failed:
-                _log.Audit(LogLevel.Error, $"{name}: {label}の自動検索に失敗しました",
+                _log.Audit(LogLevel.Error, $"[設定名: {name}] {label}の自動検索に失敗しました",
                     ("設定", name),
                     ("種別", label),
                     ("フェーズ", failed.Error.Phase),

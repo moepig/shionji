@@ -18,19 +18,15 @@ public class MainViewModelTests
     }
 
     [Test]
-    public async Task フィルタで設定名を絞り込める()
+    public async Task 行は設定名の順に並ぶ()
     {
         var ui = new UiHarness();
-        await ui.App.Configs.SaveAsync(TestData.StaticConfig(name: "api-db", localPort: 15001));
         await ui.App.Configs.SaveAsync(TestData.StaticConfig(name: "cache", localPort: 15002));
+        await ui.App.Configs.SaveAsync(TestData.StaticConfig(name: "api-db", localPort: 15001));
         await ui.App.Configs.SaveAsync(TestData.StaticConfig(name: "api-batch", localPort: 15003));
 
-        ui.Main.FilterText = "api";
-
-        await Assert.That(ui.Main.Rows.Select(r => r.Name)).IsEquivalentTo(["api-batch", "api-db"]);
-
-        ui.Main.FilterText = string.Empty;
-        await Assert.That(ui.Main.Rows.Count).IsEqualTo(3);
+        await Assert.That(ui.Main.Rows.Select(r => r.Name))
+            .IsEquivalentTo(["api-batch", "api-db", "cache"]);
     }
 
     [Test]

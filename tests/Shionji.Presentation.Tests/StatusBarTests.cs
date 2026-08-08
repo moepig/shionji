@@ -62,7 +62,7 @@ public class StatusBarTests
         await ui.Main.Rows[0].ToggleConnectionCommand.ExecuteAsync(null);
 
         // ステータスバーには要約だけが出る (詳細はテキストログ側)
-        await Assert.That(ui.Main.StatusText).IsEqualTo("api-db: localhost:13306 で接続しました");
+        await Assert.That(ui.Main.StatusText).IsEqualTo("[設定名: api-db] localhost:13306 で接続しました");
         await Assert.That(ui.Main.StatusSeverity).IsEqualTo(ActivitySeverity.Info);
     }
 

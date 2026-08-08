@@ -484,7 +484,7 @@ public sealed partial class ConfigEditorViewModel : ObservableObject
         return Require(Port.Create(value));
     }
 
-    /// <summary>「Key=v1|v2; Key2=v3」→ TagFilters。</summary>
+    /// <summary>「Key=値; Key2=値2」→ TagFilters。並べた条件はすべて満たす必要がある (AND)。</summary>
     public static TagFilters ParseTags(string text)
     {
         if (string.IsNullOrWhiteSpace(text))
@@ -497,14 +497,12 @@ public sealed partial class ConfigEditorViewModel : ObservableObject
             if (separator <= 0)
                 throw new FormException($"タグ条件は「キー=値」形式で指定してください: {entry}");
 
-            var key = entry[..separator];
-            var values = entry[(separator + 1)..].Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            filters.Add(Require(TagFilter.Create(key, values)));
+            filters.Add(Require(TagFilter.Create(entry[..separator], entry[(separator + 1)..])));
         }
 
         return TagFilters.From(filters);
     }
 
     public static string FormatTags(TagFilters tags) =>
-        string.Join("; ", tags.Items.Select(f => $"{f.Key}={string.Join("|", f.Values)}"));
+        string.Join("; ", tags.Items.Select(f => $"{f.Key}={f.Value}"));
 }

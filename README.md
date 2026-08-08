@@ -8,7 +8,7 @@ AWS Session Manager 専用のポートフォワード管理 GUI (Windows / WinUI
 
 - 転送設定の一覧 (状態ドット / 接続トグル / 検索済みエンドポイントの要約) + 詳細ペイン。転送先を特定できていない設定は一覧と詳細で赤く示す
 - 設定の追加 / 編集は専用ウィンドウ。保存前に「この条件で検索してみる」で入力した検索条件を実際に試せる
-- リソースクエリ: 名前 glob (`*` `?`) + タグ条件で ElastiCache / Aurora / EC2 / ECS をリソース自動検索で特定。複数一致 (Ambiguous) は候補一覧を表示
+- リソースクエリ: 名前 glob (`*` `?`) + タグ条件 (`Key=値; Key2=値2` — 並べた条件はすべて満たす AND) で ElastiCache / Aurora / EC2 / ECS をリソース自動検索で特定。複数一致 (Ambiguous) は候補一覧を表示
 - 踏み台: EC2 インスタンス (ID 直接指定 / 検索) と ECS タスク (ECS Exec)。EC2 / ECS 転送先への直接セッションも可
 - 自動再接続 (指数バックオフ 2s→30s、上限 5 回)、起動時自動接続、タスクトレイ常駐、切断時トースト通知
 - ウィンドウ下部のステータスバーに最新の動作を表示。「ログ」ボタンから直近 200 件の履歴を確認でき、ログファイルの保存先も開ける (画面に出る内容とファイルログは同じ流れ)
@@ -110,13 +110,13 @@ dotnet build src/Shionji.App.WinUI/Shionji.App.WinUI.csproj
 画面 (ステータスバー / 履歴):
 
 ```
-api-db: localhost:13306 で接続しました
+[設定名: api-db] localhost:13306 で接続しました
 ```
 
 テキストログ (`ISO 8601 タイムスタンプ(オフセット付き) [レベル] カテゴリ: 要約 | key=値 …`):
 
 ```
-2026-08-08T18:13:56.615+09:00 [INF] Shionji.Application.TunnelSupervisor: api-db: localhost:13306 で接続しました | 試行=6128f3e6 設定=api-db 転送先=demo-aurora.cluster-demo.ap-northeast-1.rds.amazonaws.com:3306 経路=EC2:i-0demo0123456789a SSMターゲット=i-0demo0123456789a 文書=AWS-StartPortForwardingSessionToRemoteHost プロファイル=demo@ap-northeast-1 ローカル=localhost:13306 セッション=s-demo508478
+2026-08-08T18:13:56.615+09:00 [INF] Shionji.Application.TunnelSupervisor: [設定名: api-db] localhost:13306 で接続しました | 試行=6128f3e6 設定=api-db 転送先=demo-aurora.cluster-demo.ap-northeast-1.rds.amazonaws.com:3306 経路=EC2:i-0demo0123456789a SSMターゲット=i-0demo0123456789a 文書=AWS-StartPortForwardingSessionToRemoteHost プロファイル=demo@ap-northeast-1 ローカル=localhost:13306 セッション=s-demo508478
 ```
 
 値に空白が含まれる場合は `"` で囲まれるため、`key=値` として機械的に読み取れる。

@@ -98,9 +98,9 @@ public class ActivityLogTests
         await harness.Supervisor.StartAsync(config);
 
         var messages = harness.Activity.Recent.Select(e => e.Message).ToList();
-        await Assert.That(messages.Any(m => m.StartsWith("api-db: リソースを自動検索しています…"))).IsTrue();
-        await Assert.That(messages.Any(m => m.StartsWith("api-db: セッションを開始しています…"))).IsTrue();
-        await Assert.That(messages.Any(m => m.StartsWith("api-db: localhost:13306 で接続しました"))).IsTrue();
+        await Assert.That(messages.Any(m => m.StartsWith("[設定名: api-db] リソースを自動検索しています…"))).IsTrue();
+        await Assert.That(messages.Any(m => m.StartsWith("[設定名: api-db] セッションを開始しています…"))).IsTrue();
+        await Assert.That(messages.Any(m => m.StartsWith("[設定名: api-db] localhost:13306 で接続しました"))).IsTrue();
     }
 
     [Test]
@@ -113,7 +113,7 @@ public class ActivityLogTests
 
         var failure = harness.Activity.Recent.Last();
         await Assert.That(failure.Severity).IsEqualTo(ActivitySeverity.Error);
-        await Assert.That(failure.Message).IsEqualTo("api-db: 失敗: ローカルポート 15432 は使用中です。");
+        await Assert.That(failure.Message).IsEqualTo("[設定名: api-db] 失敗: ローカルポート 15432 は使用中です。");
     }
 
     [Test]
@@ -126,7 +126,7 @@ public class ActivityLogTests
         await harness.Configs.DeleteAsync(config.Id);
 
         var messages = harness.Activity.Recent.Select(e => e.Message).ToList();
-        await Assert.That(messages).Contains("設定「api-db」を保存しました");
-        await Assert.That(messages).Contains("設定「api-db」を削除しました");
+        await Assert.That(messages).Contains("[設定名: api-db] 設定を保存しました");
+        await Assert.That(messages).Contains("[設定名: api-db] 設定を削除しました");
     }
 }

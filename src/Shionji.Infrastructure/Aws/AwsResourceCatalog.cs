@@ -128,8 +128,9 @@ public sealed class AwsResourceCatalog(AwsClientFactory clientFactory, IClock cl
         {
             Filters = [new Amazon.EC2.Model.Filter("instance-state-name", ["running"])],
         };
+        // タグ条件はすべて満たす必要がある (API のフィルタは AND で評価される)
         foreach (var tagFilter in query.Tags.Items)
-            request.Filters.Add(new Amazon.EC2.Model.Filter($"tag:{tagFilter.Key}", [.. tagFilter.Values]));
+            request.Filters.Add(new Amazon.EC2.Model.Filter($"tag:{tagFilter.Key}", [tagFilter.Value]));
 
         var instances = new List<Instance>();
         string? token = null;

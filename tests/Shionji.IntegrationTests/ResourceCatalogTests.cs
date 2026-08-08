@@ -73,13 +73,13 @@ public class ResourceCatalogTests
         await using var _ = aws;
         aws.On("DescribeInstances", AwsResponses.Ec2Instances([("i-0aaa0000000000001", "10.0.1.5", "bastion-01")]));
 
-        var tags = TagFilters.Of(TagFilter.Create("Environment", ["production", "staging"]).Value);
+        var tags = TagFilters.Of(TagFilter.Create("Environment", "production").Value);
         await ResolveAsync(catalog, new Ec2Query(null, tags, MatchPolicy.RequireSingle));
 
         var form = aws.LastRequest("DescribeInstances")!.Form;
         await Assert.That(form["Filter.2.Name"]).IsEqualTo("tag:Environment");
         await Assert.That(form["Filter.2.Value.1"]).IsEqualTo("production");
-        await Assert.That(form["Filter.2.Value.2"]).IsEqualTo("staging");
+        await Assert.That(form.ContainsKey("Filter.2.Value.2")).IsFalse();
 
         Directory.Delete(dir, recursive: true);
     }
@@ -145,7 +145,7 @@ public class ResourceCatalogTests
             ("stg-aurora", "writer.stg.rds", "reader.stg.rds", 3306, [("Environment", "staging")]),
         ]));
 
-        var tags = TagFilters.Of(TagFilter.Create("Environment", ["production"]).Value);
+        var tags = TagFilters.Of(TagFilter.Create("Environment", "production").Value);
         var outcome = await ResolveAsync(
             catalog, new AuroraQuery(null, tags, MatchPolicy.RequireSingle, AuroraEndpointRole.Reader));
 
@@ -194,7 +194,7 @@ public class ResourceCatalogTests
                 ? AwsResponses.ElastiCacheTags(("Environment", "production"))
                 : AwsResponses.ElastiCacheTags(("Environment", "staging")));
 
-        var tags = TagFilters.Of(TagFilter.Create("Environment", ["production"]).Value);
+        var tags = TagFilters.Of(TagFilter.Create("Environment", "production").Value);
         var outcome = await ResolveAsync(
             catalog, new ElastiCacheQuery(null, tags, MatchPolicy.RequireSingle, CacheEndpointRole.Primary));
 
