@@ -1,5 +1,8 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/Shionji.App.WinUI/Shionji.App.WinUI.csproj">
+      <Platform Project="x64" />
+    </Project>
     <Project Path="src/Shionji.Application/Shionji.Application.csproj" />
     <Project Path="src/Shionji.Domain/Shionji.Domain.csproj" />
     <Project Path="src/Shionji.Infrastructure/Shionji.Infrastructure.csproj" />
