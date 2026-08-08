@@ -40,7 +40,8 @@ public sealed class AwsResourceCatalog(AwsClientFactory clientFactory, IClock cl
         }
         catch (Exception ex)
         {
-            return new ResolutionOutcome.Failed(AwsErrors.Classify(ex, phase, aws.Profile));
+            return new ResolutionOutcome.Failed(
+                AwsErrors.Classify(ex, phase, aws.Profile, clientFactory.IsSsoProfile(aws.Profile)));
         }
     }
 

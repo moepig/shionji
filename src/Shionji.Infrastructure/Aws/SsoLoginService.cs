@@ -55,7 +55,7 @@ public sealed class SsoLoginService : ISsoLoginService
         }
         catch (Exception ex)
         {
-            return AwsErrors.Classify(ex, FailurePhase.Credentials, profile);
+            return AwsErrors.Classify(ex, FailurePhase.Credentials, profile, isSsoProfile: true);
         }
     }
 }
