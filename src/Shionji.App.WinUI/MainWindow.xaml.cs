@@ -33,6 +33,8 @@ public sealed partial class MainWindow : Window
         Title = isDemoMode ? "Shionji (デモモード)" : "Shionji";
         DemoBadge.Visibility = isDemoMode ? Visibility.Visible : Visibility.Collapsed;
         RootGrid.DataContext = _viewModel;
+        // Flyout の中身は視覚ツリーの外に置かれるため DataContext を明示する
+        ActivityPanel.DataContext = _viewModel;
 
         if (File.Exists(IconPath))
             AppWindow.SetIcon(IconPath);

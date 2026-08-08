@@ -23,6 +23,15 @@ internal sealed class FakeClipboard : IClipboardService
     public void SetText(string text) => LastText = text;
 }
 
+internal sealed class FakeLogLocation : ILogLocationService
+{
+    public string LogDirectory => @"C:\fake\logs";
+
+    public int OpenCount { get; private set; }
+
+    public void OpenLogLocation() => OpenCount++;
+}
+
 internal sealed class FakeSsoLogin : Shionji.Domain.Ports.ISsoLoginService
 {
     public int Calls { get; private set; }
@@ -50,11 +59,17 @@ internal sealed class UiHarness
     public RecordingNotificationService Notifications { get; } = new();
     public FakeClipboard Clipboard { get; } = new();
     public FakeSsoLogin SsoLogin { get; } = new();
+    public FakeLogLocation LogLocation { get; } = new();
     public MainViewModel Main { get; }
 
     public UiHarness(Shionji.Application.IRetryScheduler? scheduler = null)
+        : this(new Harness(scheduler))
     {
-        App = new Harness(scheduler);
+    }
+
+    public UiHarness(Harness harness)
+    {
+        App = harness;
         Main = new MainViewModel(
             App.Configs,
             App.Supervisor,
@@ -63,6 +78,8 @@ internal sealed class UiHarness
             Notifications,
             Clipboard,
             SsoLogin,
-            App.Logs);
+            App.Logs,
+            App.Activity,
+            LogLocation);
     }
 }

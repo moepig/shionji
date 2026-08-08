@@ -26,6 +26,24 @@ public sealed partial class StatusBrushConverter : IValueConverter
         throw new NotSupportedException();
 }
 
+/// <summary>ステータスの重大度に対応する色。</summary>
+public sealed partial class ActivityBrushConverter : IValueConverter
+{
+    private static readonly SolidColorBrush Info = new(Colors.Gray);
+    private static readonly SolidColorBrush Warning = new(Colors.Goldenrod);
+    private static readonly SolidColorBrush Error = new(Colors.IndianRed);
+
+    public object Convert(object value, Type targetType, object parameter, string language) => value switch
+    {
+        Application.ActivitySeverity.Warning => Warning,
+        Application.ActivitySeverity.Error => Error,
+        _ => Info,
+    };
+
+    public object ConvertBack(object value, Type targetType, object parameter, string language) =>
+        throw new NotSupportedException();
+}
+
 /// <summary>bool → Visibility。parameter="Invert" で反転。</summary>
 public sealed partial class BoolToVisibilityConverter : IValueConverter
 {

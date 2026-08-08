@@ -17,3 +17,12 @@ public interface IClipboardService
 {
     void SetText(string text);
 }
+
+/// <summary>ログファイルの所在をユーザーに示す (エクスプローラーで開くなど)。</summary>
+public interface ILogLocationService
+{
+    /// <summary>表示用のログ保存先パス。</summary>
+    string LogDirectory { get; }
+
+    void OpenLogLocation();
+}

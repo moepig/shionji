@@ -20,6 +20,7 @@ public sealed partial class MainViewModel : ObservableObject
     private readonly IClipboardService _clipboard;
     private readonly ISsoLoginService _ssoLogin;
     private readonly SessionLogStore _sessionLog;
+    private readonly ILogLocationService _logLocation;
 
     private readonly Dictionary<ConfigId, ConfigRowViewModel> _rowsById = [];
     private readonly HashSet<ConfigId> _established = [];
@@ -36,6 +37,26 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty]
     public partial ObservableObject? DetailContent { get; set; }
 
+    // --- ステータスバー ---
+
+    /// <summary>最新の動作。ステータスバーに 1 行で出す。</summary>
+    [ObservableProperty]
+    public partial string StatusText { get; set; } = "準備中…";
+
+    [ObservableProperty]
+    public partial ActivitySeverity StatusSeverity { get; set; } = ActivitySeverity.Info;
+
+    [ObservableProperty]
+    public partial string StatusTime { get; set; } = string.Empty;
+
+    /// <summary>履歴一覧 (新しい順)。ステータスバーから開く。</summary>
+    public ObservableCollection<ActivityItemViewModel> Activities { get; } = [];
+
+    public string LogDirectory => _logLocation.LogDirectory;
+
+    [RelayCommand]
+    private void OpenLogLocation() => _logLocation.OpenLogLocation();
+
     public MainViewModel(
         ConfigService configService,
         TunnelSupervisor supervisor,
@@ -44,7 +65,9 @@ public sealed partial class MainViewModel : ObservableObject
         INotificationService notifications,
         IClipboardService clipboard,
         ISsoLoginService ssoLogin,
-        SessionLogStore sessionLog)
+        SessionLogStore sessionLog,
+        ActivityLog activityLog,
+        ILogLocationService logLocation)
     {
         _configService = configService;
         _supervisor = supervisor;
@@ -54,6 +77,11 @@ public sealed partial class MainViewModel : ObservableObject
         _clipboard = clipboard;
         _ssoLogin = ssoLogin;
         _sessionLog = sessionLog;
+        _logLocation = logLocation;
+
+        foreach (var entry in activityLog.Recent)
+            AppendActivity(entry);
+        activityLog.Posted += (_, entry) => _dispatcher.Post(() => AppendActivity(entry));
 
         _configService.ConfigsChanged += (_, _) => _dispatcher.Post(RebuildRows);
         _supervisor.SessionChanged += (_, e) => _dispatcher.Post(() => OnSessionChanged(e));
@@ -248,6 +276,19 @@ public sealed partial class MainViewModel : ObservableObject
                 _notifications.NotifyUnexpectedDisconnect(name, failed.Error.Message);
                 break;
         }
+    }
+
+    /// <summary>ステータスバーの表示を最新にし、履歴の先頭へ積む。</summary>
+    private void AppendActivity(ActivityEntry entry)
+    {
+        var item = new ActivityItemViewModel(entry);
+        StatusText = item.Message;
+        StatusSeverity = item.Severity;
+        StatusTime = item.Time;
+
+        Activities.Insert(0, item);
+        while (Activities.Count > 200)
+            Activities.RemoveAt(Activities.Count - 1);
     }
 
     private void RefreshConfig(ConfigId id)

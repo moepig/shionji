@@ -65,15 +65,21 @@ public partial class App : Microsoft.UI.Xaml.Application
     {
         var services = new ServiceCollection();
 
+        services.AddSingleton<IClock, SystemClock>();
+
+        // ログはファイルと画面のステータスバーの両方へ流す
         var logDirectory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Shionji", "logs");
+        var activityLog = new ActivityLog(new SystemClock());
+        services.AddSingleton(activityLog);
+        services.AddSingleton<ILogLocationService>(new WinUiLogLocationService(logDirectory));
         services.AddLogging(builder =>
         {
             builder.SetMinimumLevel(LogLevel.Information);
             builder.AddProvider(new FileLoggerProvider(logDirectory));
+            builder.AddProvider(new ActivityLogProvider(activityLog));
         });
 
-        services.AddSingleton<IClock, SystemClock>();
         services.AddSingleton<IRetryScheduler, TaskDelayRetryScheduler>();
         services.AddSingleton<ILocalPortProbe, TcpLocalPortProbe>();
 
@@ -97,8 +103,10 @@ public partial class App : Microsoft.UI.Xaml.Application
             services.AddSingleton(new SessionManagerPluginLocator(() => settingsStore.Current.PluginPath));
             services.AddSingleton<ITunnelLauncher, SessionManagerPluginLauncher>();
             services.AddSingleton<ISsoLoginService>(_ => new SsoLoginService());
-            services.AddSingleton<IForwardingConfigRepository>(
-                _ => new JsonForwardingConfigRepository(JsonForwardingConfigRepository.DefaultPath));
+            services.AddSingleton<IForwardingConfigRepository>(sp =>
+                new JsonForwardingConfigRepository(
+                    JsonForwardingConfigRepository.DefaultPath,
+                    sp.GetService<ILogger<JsonForwardingConfigRepository>>()));
         }
 
         services.AddSingleton<ResolutionService>();

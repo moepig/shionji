@@ -1,4 +1,5 @@
 using Shionji.Application;
+using Microsoft.Extensions.Logging;
 using Shionji.Domain.Tunneling;
 using Shionji.Domain.ValueObjects;
 
@@ -12,6 +13,7 @@ public sealed class Harness
     public FakePortProbe Probe { get; } = new();
     public FakeClock Clock { get; } = new();
     public IRetryScheduler Scheduler { get; }
+    public ActivityLog Activity { get; }
     public ResolutionService Resolution { get; }
     public TunnelSupervisor Supervisor { get; }
     public SessionLogStore Logs { get; }
@@ -23,11 +25,23 @@ public sealed class Harness
     public Harness(IRetryScheduler? scheduler = null, InMemoryRepository? repository = null)
     {
         Scheduler = scheduler ?? new ImmediateScheduler();
-        Resolution = new ResolutionService(Catalog, Clock);
-        Supervisor = new TunnelSupervisor(Catalog, Launcher, Probe, Clock, Scheduler, Resolution);
+        Activity = new ActivityLog(Clock);
+
+        // 各サービスのログをそのまま ActivityLog へ流し、画面表示と同じ経路を再現する
+        var loggerFactory = LoggerFactory.Create(builder =>
+        {
+            builder.SetMinimumLevel(LogLevel.Information);
+            builder.AddProvider(new ActivityLogProvider(Activity));
+        });
+
+        Resolution = new ResolutionService(Catalog, Clock, loggerFactory.CreateLogger<ResolutionService>());
+        Supervisor = new TunnelSupervisor(
+            Catalog, Launcher, Probe, Clock, Scheduler, Resolution,
+            loggerFactory.CreateLogger<TunnelSupervisor>());
         Logs = new SessionLogStore(Supervisor);
         Repository = repository ?? new InMemoryRepository();
-        Configs = new ConfigService(Repository, Supervisor, Resolution, Logs);
+        Configs = new ConfigService(
+            Repository, Supervisor, Resolution, Logs, loggerFactory.CreateLogger<ConfigService>());
         Supervisor.SessionChanged += (_, e) =>
         {
             lock (_events)

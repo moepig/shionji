@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Shionji.Domain.Configuration;
 using Shionji.Domain.Ports;
 using Shionji.Domain.Resolution;
@@ -21,10 +23,12 @@ public sealed record ConfigResolutionView(
 /// 手動更新 (遅い) と接続時 Publish (新しい) が競合した場合、
 /// 世代番号で古い書き込みを破棄し last-write-wins による巻き戻りを防ぐ。
 /// </summary>
-public sealed class ResolutionService(IResourceCatalog catalog, IClock clock)
+public sealed class ResolutionService(
+    IResourceCatalog catalog, IClock clock, ILogger<ResolutionService>? logger = null)
 {
     private sealed record Entry(ConfigResolutionView View, long Version);
 
+    private readonly ILogger _log = logger ?? NullLogger<ResolutionService>.Instance;
     private readonly object _sync = new();
     private readonly Dictionary<ConfigId, Entry> _entries = [];
     private long _sequence;
@@ -84,7 +88,31 @@ public sealed class ResolutionService(IResourceCatalog catalog, IClock clock)
                 ++_sequence);
         }
 
+        LogOutcome(config.Name.Value, "転送先", destination);
+        LogOutcome(config.Name.Value, "踏み台", gateway);
         ViewChanged?.Invoke(this, config.Id);
+    }
+
+    private void LogOutcome(string name, string label, ResolutionOutcome? outcome)
+    {
+        switch (outcome)
+        {
+            case ResolutionOutcome.Resolved resolved:
+                _log.LogInformation(
+                    "{Config}: {Label}を {Resource} に解決しました", name, label, resolved.Resource.DisplayName);
+                break;
+            case ResolutionOutcome.NotFound:
+                _log.LogWarning("{Config}: 条件に一致する{Label}が見つかりません", name, label);
+                break;
+            case ResolutionOutcome.Ambiguous ambiguous:
+                _log.LogWarning(
+                    "{Config}: {Label}が {Count} 件一致しました。条件を絞り込んでください",
+                    name, label, ambiguous.Candidates.Count);
+                break;
+            case ResolutionOutcome.Failed failed:
+                _log.LogError("{Config}: {Label}の解決に失敗しました - {Message}", name, label, failed.Error.Message);
+                break;
+        }
     }
 
     /// <summary>全設定を並列に解決する。</summary>
