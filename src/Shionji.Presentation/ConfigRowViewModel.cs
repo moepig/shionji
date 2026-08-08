@@ -38,6 +38,18 @@ public sealed partial class ConfigRowViewModel(MainViewModel owner, ConfigId con
     [ObservableProperty]
     public partial string Summary { get; set; } = string.Empty;
 
+    /// <summary>要約の前半 (「:13306 →」)。</summary>
+    [ObservableProperty]
+    public partial string LocalText { get; set; } = string.Empty;
+
+    /// <summary>要約の後半 (転送先)。特定できていないときは理由が入る。</summary>
+    [ObservableProperty]
+    public partial string DestinationText { get; set; } = string.Empty;
+
+    /// <summary>転送先を特定できていない (未検出 / 複数一致 / 検索失敗)。一覧で赤く出す。</summary>
+    [ObservableProperty]
+    public partial bool DestinationHasError { get; set; }
+
     /// <summary>接続トグルの ON 状態 (接続処理中も ON)。</summary>
     [ObservableProperty]
     public partial bool IsConnected { get; set; }
@@ -57,8 +69,18 @@ public sealed partial class ConfigRowViewModel(MainViewModel owner, ConfigId con
             or SessionState.Starting
             or SessionState.Established
             or SessionState.Reconnecting;
-        Summary = BuildSummary(config, view, actualLocalPort);
+        LocalText = $":{LocalPortSummary(config, actualLocalPort)} →";
+        DestinationText = DestinationSummary(config, view);
+        DestinationHasError = HasDestinationError(config, view);
+        Summary = $"{LocalText} {DestinationText}";
     }
+
+    /// <summary>転送先の自動検索が結果を出せていないか。</summary>
+    public static bool HasDestinationError(ForwardingConfig config, ConfigResolutionView? view) =>
+        config.Destination is Destination.Query &&
+        view?.Destination is ResolutionOutcome.NotFound
+            or ResolutionOutcome.Ambiguous
+            or ResolutionOutcome.Failed;
 
     public static StatusKind StatusOf(SessionState state) => state switch
     {
@@ -72,16 +94,15 @@ public sealed partial class ConfigRowViewModel(MainViewModel owner, ConfigId con
     public static string BuildSummary(
         ForwardingConfig config,
         ConfigResolutionView? view,
-        Port? actualLocalPort)
-    {
-        var local = config.LocalPort switch
+        Port? actualLocalPort) =>
+        $":{LocalPortSummary(config, actualLocalPort)} → {DestinationSummary(config, view)}";
+
+    private static string LocalPortSummary(ForwardingConfig config, Port? actualLocalPort) =>
+        config.LocalPort switch
         {
             LocalPortSpec.Fixed fixedPort => fixedPort.Port.Value.ToString(),
             _ => actualLocalPort?.Value.ToString() ?? "auto",
         };
-
-        return $":{local} → {DestinationSummary(config, view)}";
-    }
 
     /// <summary>転送先の要約。一覧の 2 行目と詳細ペインの「転送先」で共用する。</summary>
     public static string DestinationSummary(ForwardingConfig config, ConfigResolutionView? view)

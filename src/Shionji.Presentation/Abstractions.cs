@@ -18,6 +18,12 @@ public interface IClipboardService
     void SetText(string text);
 }
 
+/// <summary>設定の追加 / 編集を別ウィンドウで開く。</summary>
+public interface IConfigEditorWindowService
+{
+    void ShowEditor(ConfigEditorViewModel editor);
+}
+
 /// <summary>ログファイルの所在をユーザーに示す (エクスプローラーで開くなど)。</summary>
 public interface ILogLocationService
 {

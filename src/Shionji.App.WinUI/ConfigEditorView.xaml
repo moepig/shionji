@@ -1,0 +1,141 @@
+<UserControl
+    x:Class="Shionji.App.WinUI.ConfigEditorView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Shionji.App.WinUI">
+
+    <UserControl.Resources>
+        <local:BoolToVisibilityConverter x:Key="BoolToVis" />
+        <local:NullToVisibilityConverter x:Key="NullToVis" />
+        <local:EnumIndexConverter x:Key="EnumIndex" />
+        <local:ErrorBrushConverter x:Key="ErrorBrush" />
+
+        <Style x:Key="FormSectionStyle" TargetType="TextBlock"
+               BasedOn="{StaticResource BodyStrongTextBlockStyle}">
+            <Setter Property="Margin" Value="0,10,0,0" />
+        </Style>
+    </UserControl.Resources>
+
+    <Grid RowSpacing="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ScrollViewer>
+            <StackPanel Spacing="10" MaxWidth="520" HorizontalAlignment="Left" Padding="0,0,16,0">
+
+                <TextBlock Text="基本" Style="{StaticResource FormSectionStyle}" />
+                <TextBox Header="設定名" Text="{Binding Name, Mode=TwoWay}" />
+                <TextBox Header="AWS プロファイル" Text="{Binding Profile, Mode=TwoWay}" />
+                <TextBox Header="リージョン" Text="{Binding Region, Mode=TwoWay}" />
+                <TextBox Header="ローカルポート (空 = 自動割当)"
+                         Text="{Binding LocalPortText, Mode=TwoWay}" />
+
+                <TextBlock Text="転送先" Style="{StaticResource FormSectionStyle}" />
+                <ComboBox Header="転送先の種別" MinWidth="240"
+                          SelectedIndex="{Binding DestinationKind, Mode=TwoWay, Converter={StaticResource EnumIndex}, ConverterParameter=DestinationKind}">
+                    <ComboBoxItem Content="エンドポイント / IP 直接指定" />
+                    <ComboBoxItem Content="ElastiCache (検索)" />
+                    <ComboBoxItem Content="Aurora (検索)" />
+                    <ComboBoxItem Content="EC2 インスタンス (検索)" />
+                    <ComboBoxItem Content="ECS タスク (検索)" />
+                </ComboBox>
+
+                <TextBox Header="転送先ホスト" Text="{Binding DestHost, Mode=TwoWay}"
+                         Visibility="{Binding IsStaticDestination, Converter={StaticResource BoolToVis}}" />
+
+                <StackPanel Spacing="10"
+                            Visibility="{Binding IsNamedQueryDestination, Converter={StaticResource BoolToVis}}">
+                    <TextBox Header="名前パターン (glob: * ?)" Text="{Binding DestNamePattern, Mode=TwoWay}" />
+                    <TextBox Header="タグ条件 (Key=v1|v2; Key2=v3)" Text="{Binding DestTagsText, Mode=TwoWay}" />
+                </StackPanel>
+
+                <ComboBox Header="エンドポイント" MinWidth="240"
+                          Visibility="{Binding IsCacheDestination, Converter={StaticResource BoolToVis}}"
+                          SelectedIndex="{Binding CacheRole, Mode=TwoWay, Converter={StaticResource EnumIndex}, ConverterParameter=CacheRole}">
+                    <ComboBoxItem Content="Primary" />
+                    <ComboBoxItem Content="Reader" />
+                    <ComboBoxItem Content="Configuration" />
+                </ComboBox>
+
+                <ComboBox Header="エンドポイント" MinWidth="240"
+                          Visibility="{Binding IsAuroraDestination, Converter={StaticResource BoolToVis}}"
+                          SelectedIndex="{Binding AuroraRole, Mode=TwoWay, Converter={StaticResource EnumIndex}, ConverterParameter=AuroraRole}">
+                    <ComboBoxItem Content="Writer" />
+                    <ComboBoxItem Content="Reader" />
+                </ComboBox>
+
+                <StackPanel Spacing="10"
+                            Visibility="{Binding IsEcsTaskDestination, Converter={StaticResource BoolToVis}}">
+                    <TextBox Header="クラスター" Text="{Binding DestCluster, Mode=TwoWay}" />
+                    <TextBox Header="サービス (任意)" Text="{Binding DestService, Mode=TwoWay}" />
+                    <TextBox Header="コンテナ (任意)" Text="{Binding DestContainer, Mode=TwoWay}" />
+                </StackPanel>
+
+                <TextBox Header="転送先ポート (ElastiCache / Aurora は空で既定ポート)"
+                         Text="{Binding DestPortText, Mode=TwoWay}" />
+
+                <CheckBox Content="複数一致時は先頭を採用"
+                          IsChecked="{Binding DestPickFirst, Mode=TwoWay}"
+                          Visibility="{Binding IsQueryDestination, Converter={StaticResource BoolToVis}}" />
+
+                <TextBlock Text="経路 (踏み台)" Style="{StaticResource FormSectionStyle}" />
+                <ComboBox Header="経路の種別" MinWidth="240"
+                          SelectedIndex="{Binding GatewayKind, Mode=TwoWay, Converter={StaticResource EnumIndex}, ConverterParameter=GatewayKind}">
+                    <ComboBoxItem Content="直接 (転送先に SSM セッション)" />
+                    <ComboBoxItem Content="EC2 踏み台 (インスタンス ID)" />
+                    <ComboBoxItem Content="EC2 踏み台 (検索)" />
+                    <ComboBoxItem Content="ECS 踏み台 (ECS Exec)" />
+                </ComboBox>
+
+                <TextBox Header="インスタンス ID" Text="{Binding GwInstanceId, Mode=TwoWay}"
+                         Visibility="{Binding IsEc2ByIdGateway, Converter={StaticResource BoolToVis}}" />
+
+                <StackPanel Spacing="10"
+                            Visibility="{Binding IsEc2ByQueryGateway, Converter={StaticResource BoolToVis}}">
+                    <TextBox Header="名前パターン" Text="{Binding GwNamePattern, Mode=TwoWay}" />
+                    <TextBox Header="タグ条件" Text="{Binding GwTagsText, Mode=TwoWay}" />
+                    <CheckBox Content="複数一致時は先頭を採用" IsChecked="{Binding GwPickFirst, Mode=TwoWay}" />
+                </StackPanel>
+
+                <StackPanel Spacing="10"
+                            Visibility="{Binding IsEcsGateway, Converter={StaticResource BoolToVis}}">
+                    <TextBox Header="クラスター" Text="{Binding GwCluster, Mode=TwoWay}" />
+                    <TextBox Header="サービス" Text="{Binding GwService, Mode=TwoWay}" />
+                    <TextBox Header="コンテナ (任意)" Text="{Binding GwContainer, Mode=TwoWay}" />
+                </StackPanel>
+
+                <!-- 保存する前に、入力した条件で実際に探せるか確かめられる -->
+                <StackPanel Spacing="8"
+                            Visibility="{Binding CanTestSearch, Converter={StaticResource BoolToVis}}">
+                    <TextBlock Text="検索の確認" Style="{StaticResource FormSectionStyle}" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="この条件で検索してみる" Command="{Binding TestSearchCommand}" />
+                        <ProgressRing IsActive="{Binding IsTestingSearch}" Width="18" Height="18"
+                                      VerticalAlignment="Center" />
+                    </StackPanel>
+                    <TextBlock Text="{Binding SearchTestResult}" TextWrapping="Wrap"
+                               IsTextSelectionEnabled="True"
+                               Foreground="{Binding SearchTestFailed, Converter={StaticResource ErrorBrush}}"
+                               Visibility="{Binding SearchTestResult, Converter={StaticResource NullToVis}}" />
+                    <ItemsControl ItemsSource="{Binding SearchTestCandidates}" Margin="12,0,0,0" />
+                </StackPanel>
+
+                <TextBlock Text="オプション" Style="{StaticResource FormSectionStyle}" />
+                <CheckBox Content="予期せぬ切断時に自動再接続する" IsChecked="{Binding AutoReconnect, Mode=TwoWay}" />
+                <CheckBox Content="アプリ起動時に自動接続する" IsChecked="{Binding ConnectOnLaunch, Mode=TwoWay}" />
+            </StackPanel>
+        </ScrollViewer>
+
+        <StackPanel Grid.Row="1" Spacing="8">
+            <TextBlock Text="{Binding ValidationError}" TextWrapping="Wrap" Foreground="IndianRed"
+                       Visibility="{Binding ValidationError, Converter={StaticResource NullToVis}}" />
+            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                <Button Content="保存" Style="{StaticResource AccentButtonStyle}"
+                        Command="{Binding SaveCommand}" />
+                <Button Content="キャンセル" Command="{Binding CancelCommand}" />
+            </StackPanel>
+        </StackPanel>
+    </Grid>
+</UserControl>

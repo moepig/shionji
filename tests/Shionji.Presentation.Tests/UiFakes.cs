@@ -23,6 +23,21 @@ internal sealed class FakeClipboard : IClipboardService
     public void SetText(string text) => LastText = text;
 }
 
+internal sealed class FakeEditorWindow : IConfigEditorWindowService
+{
+    public List<ConfigEditorViewModel> Opened { get; } = [];
+
+    public ConfigEditorViewModel Last => Opened[^1];
+
+    public int ClosedCount { get; private set; }
+
+    public void ShowEditor(ConfigEditorViewModel editor)
+    {
+        Opened.Add(editor);
+        editor.Closed += (_, _) => ClosedCount++;
+    }
+}
+
 internal sealed class FakeLogLocation : ILogLocationService
 {
     public string LogDirectory => @"C:\fake\logs";
@@ -60,6 +75,7 @@ internal sealed class UiHarness
     public FakeClipboard Clipboard { get; } = new();
     public FakeSsoLogin SsoLogin { get; } = new();
     public FakeLogLocation LogLocation { get; } = new();
+    public FakeEditorWindow EditorWindow { get; } = new();
     public MainViewModel Main { get; }
 
     public UiHarness(Shionji.Application.IRetryScheduler? scheduler = null)
@@ -80,6 +96,8 @@ internal sealed class UiHarness
             SsoLogin,
             App.Logs,
             App.Activity,
-            LogLocation);
+            LogLocation,
+            EditorWindow,
+            App.Catalog);
     }
 }

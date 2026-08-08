@@ -75,6 +75,91 @@ public class ConfigDetailViewModelTests
     }
 
     [Test]
+    public async Task コピーすると完了表示が出る()
+    {
+        var ui = new UiHarness();
+        await ui.App.Configs.SaveAsync(TestData.StaticConfig(name: "api-db", localPort: 13306));
+        var row = ui.Main.Rows[0];
+        ui.Main.SelectedRow = row;
+        await row.ToggleConnectionCommand.ExecuteAsync(null);
+        var detail = (ConfigDetailViewModel)ui.Main.DetailContent!;
+
+        await Assert.That(detail.IsCopyConfirmationVisible).IsFalse();
+
+        detail.CopyLocalEndpointCommand.Execute(null);
+
+        await Assert.That(detail.IsCopyConfirmationVisible).IsTrue();
+        await Assert.That(detail.CopyConfirmationText).IsEqualTo("接続先をコピーしました");
+    }
+
+    [Test]
+    public async Task セッションログをまとめてコピーできる()
+    {
+        var ui = new UiHarness();
+        await ui.App.Configs.SaveAsync(TestData.StaticConfig(name: "api-db"));
+        var row = ui.Main.Rows[0];
+        ui.Main.SelectedRow = row;
+        await row.ToggleConnectionCommand.ExecuteAsync(null);
+        ui.App.Launcher.LastHandle.EmitLog("first line");
+        ui.App.Launcher.LastHandle.EmitLog("second line", isError: true);
+
+        var detail = (ConfigDetailViewModel)ui.Main.DetailContent!;
+        detail.CopyLogCommand.Execute(null);
+
+        await Assert.That(ui.Clipboard.LastText!).Contains("first line");
+        await Assert.That(ui.Clipboard.LastText!).Contains("[stderr] second line");
+        await Assert.That(detail.CopyConfirmationText).IsEqualTo("ログ 2 行をコピーしました");
+    }
+
+    [Test]
+    public async Task ログが無ければコピーしない()
+    {
+        var ui = new UiHarness();
+        await ui.App.Configs.SaveAsync(TestData.StaticConfig(name: "api-db"));
+        ui.Main.SelectedRow = ui.Main.Rows[0];
+        var detail = (ConfigDetailViewModel)ui.Main.DetailContent!;
+
+        detail.CopyLogCommand.Execute(null);
+
+        await Assert.That(ui.Clipboard.LastText).IsNull();
+        await Assert.That(detail.IsCopyConfirmationVisible).IsFalse();
+    }
+
+    [Test]
+    public async Task 転送先を特定できないと一覧と詳細で赤くする()
+    {
+        var ui = new UiHarness();
+        ui.App.Catalog.Handler = (_, _) => new ResolutionOutcome.Ambiguous(
+            [TestData.Resource("a"), TestData.Resource("b"), TestData.Resource("c")]);
+        var config = TestData.QueryConfig();
+        await ui.App.Configs.SaveAsync(config);
+        ui.Main.SelectedRow = ui.Main.Rows[0];
+
+        await ui.App.Resolution.RefreshAsync(config);
+
+        var row = ui.Main.Rows[0];
+        await Assert.That(row.DestinationText).IsEqualTo("複数一致 (3 件)");
+        await Assert.That(row.DestinationHasError).IsTrue();
+
+        var detail = (ConfigDetailViewModel)ui.Main.DetailContent!;
+        await Assert.That(detail.DestinationHasError).IsTrue();
+    }
+
+    [Test]
+    public async Task 特定できていれば赤くしない()
+    {
+        var ui = new UiHarness();
+        var config = TestData.QueryConfig();
+        await ui.App.Configs.SaveAsync(config);
+        ui.Main.SelectedRow = ui.Main.Rows[0];
+
+        await ui.App.Resolution.RefreshAsync(config);
+
+        await Assert.That(ui.Main.Rows[0].DestinationHasError).IsFalse();
+        await Assert.That(((ConfigDetailViewModel)ui.Main.DetailContent!).DestinationHasError).IsFalse();
+    }
+
+    [Test]
     public async Task 失敗時はフェーズ付きのエラーが表示される()
     {
         var ui = new UiHarness();

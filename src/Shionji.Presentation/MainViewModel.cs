@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Shionji.Application;
+using Shionji.Domain.Configuration;
 using Shionji.Domain.Ports;
 using Shionji.Domain.Resolution;
 using Shionji.Domain.Tunneling;
@@ -21,6 +22,8 @@ public sealed partial class MainViewModel : ObservableObject
     private readonly ISsoLoginService _ssoLogin;
     private readonly SessionLogStore _sessionLog;
     private readonly ILogLocationService _logLocation;
+    private readonly IConfigEditorWindowService _editorWindow;
+    private readonly IResourceCatalog _catalog;
 
     private readonly Dictionary<ConfigId, ConfigRowViewModel> _rowsById = [];
     private readonly HashSet<ConfigId> _established = [];
@@ -41,14 +44,9 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty]
     public partial string ConfigsHeader { get; set; } = "設定";
 
-    /// <summary>右ペインの見出し。編集中は表示を切り替える。</summary>
+    /// <summary>右ペインの見出し。</summary>
     [ObservableProperty]
     public partial string DetailHeader { get; set; } = "詳細";
-
-    partial void OnDetailContentChanged(ObservableObject? value) =>
-        DetailHeader = value is ConfigEditorViewModel editor
-            ? (editor.IsNew ? "詳細 — 新規作成" : "詳細 — 編集")
-            : "詳細";
 
     // --- ステータスバー ---
 
@@ -80,7 +78,9 @@ public sealed partial class MainViewModel : ObservableObject
         ISsoLoginService ssoLogin,
         SessionLogStore sessionLog,
         ActivityLog activityLog,
-        ILogLocationService logLocation)
+        ILogLocationService logLocation,
+        IConfigEditorWindowService editorWindow,
+        IResourceCatalog catalog)
     {
         _configService = configService;
         _supervisor = supervisor;
@@ -91,6 +91,8 @@ public sealed partial class MainViewModel : ObservableObject
         _ssoLogin = ssoLogin;
         _sessionLog = sessionLog;
         _logLocation = logLocation;
+        _editorWindow = editorWindow;
+        _catalog = catalog;
 
         foreach (var entry in activityLog.Recent)
             AppendActivity(entry);
@@ -117,17 +119,31 @@ public sealed partial class MainViewModel : ObservableObject
             return;
         }
 
-        var detail = new ConfigDetailViewModel(this, value.ConfigId, _clipboard);
+        var detail = new ConfigDetailViewModel(this, value.ConfigId, _clipboard, _dispatcher);
         detail.LoadLog(_sessionLog.GetLines(value.ConfigId));
         DetailContent = detail;
         RefreshDetail(detail);
     }
 
+    /// <summary>設定の追加は独立したウィンドウで行う (一覧を見ながら入力できる)。</summary>
     [RelayCommand]
-    private void AddConfig()
+    private void AddConfig() => _editorWindow.ShowEditor(ConfigEditorViewModel.ForNew(this));
+
+    /// <summary>入力中の検索条件で実際にリソースを探してみる (保存前の確認用)。</summary>
+    internal Task<ResolutionOutcome> TestSearchAsync(AwsContext aws, ResourceQuery query) =>
+        SafeTestSearchAsync(aws, query);
+
+    private async Task<ResolutionOutcome> SafeTestSearchAsync(AwsContext aws, ResourceQuery query)
     {
-        SelectedRow = null;
-        DetailContent = ConfigEditorViewModel.ForNew(this);
+        try
+        {
+            return await _catalog.ResolveAsync(aws, query, FailurePhase.ResolveDestination);
+        }
+        catch (Exception ex)
+        {
+            return new ResolutionOutcome.Failed(
+                new ErrorDetail(FailurePhase.ResolveDestination, "Unexpected", ex.Message));
+        }
     }
 
     [RelayCommand]
@@ -193,10 +209,10 @@ public sealed partial class MainViewModel : ObservableObject
     internal void ShowEditor(ConfigId id)
     {
         if (_configService.Find(id) is { } config)
-            DetailContent = ConfigEditorViewModel.ForExisting(this, config);
+            _editorWindow.ShowEditor(ConfigEditorViewModel.ForExisting(this, config));
     }
 
-    /// <summary>編集終了。保存された場合はその行を選択し詳細に戻る。</summary>
+    /// <summary>編集終了。保存された場合はその行を選択して詳細を出す。</summary>
     internal void CloseEditor(ConfigId? savedId)
     {
         _dispatcher.Post(() =>
@@ -204,16 +220,11 @@ public sealed partial class MainViewModel : ObservableObject
             RebuildRows();
             if (savedId is { } id && _rowsById.TryGetValue(id, out var row))
             {
-                SelectedRow = row;
-            }
-            else if (SelectedRow is { } selected)
-            {
-                // 詳細表示に戻す
-                OnSelectedRowChanged(selected);
-            }
-            else
-            {
-                DetailContent = null;
+                // 既に選択済みなら再選択されないので、詳細を作り直す
+                if (ReferenceEquals(SelectedRow, row))
+                    OnSelectedRowChanged(row);
+                else
+                    SelectedRow = row;
             }
         });
     }

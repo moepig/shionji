@@ -110,13 +110,41 @@ public class MainViewModelTests
     }
 
     [Test]
-    public async Task 追加ボタンで新規エディタが開く()
+    public async Task 追加は専用ウィンドウで開く()
     {
         var ui = new UiHarness();
 
         ui.Main.AddConfigCommand.Execute(null);
 
-        var editor = (ConfigEditorViewModel)ui.Main.DetailContent!;
-        await Assert.That(editor.IsNew).IsTrue();
+        // 詳細ペインは占有せず、別ウィンドウとして開く
+        await Assert.That(ui.EditorWindow.Opened.Count).IsEqualTo(1);
+        await Assert.That(ui.EditorWindow.Last.IsNew).IsTrue();
+        await Assert.That(ui.EditorWindow.Last.WindowTitle).IsEqualTo("設定の追加");
+        await Assert.That(ui.Main.DetailContent).IsNull();
+    }
+
+    [Test]
+    public async Task 保存とキャンセルでウィンドウが閉じる()
+    {
+        var ui = new UiHarness();
+        ui.Main.AddConfigCommand.Execute(null);
+
+        ui.EditorWindow.Last.CancelCommand.Execute(null);
+        await Assert.That(ui.EditorWindow.ClosedCount).IsEqualTo(1);
+
+        ui.Main.AddConfigCommand.Execute(null);
+        var editor = ui.EditorWindow.Last;
+        editor.Name = "api-db";
+        editor.Profile = "dev";
+        editor.DestinationKind = DestinationKind.Static;
+        editor.DestHost = "db.example.internal";
+        editor.DestPortText = "5432";
+        editor.GatewayKind = GatewayKind.Ec2ById;
+        editor.GwInstanceId = "i-0123456789abcdef0";
+
+        await editor.SaveCommand.ExecuteAsync(null);
+
+        await Assert.That(ui.EditorWindow.ClosedCount).IsEqualTo(2);
+        await Assert.That(ui.Main.SelectedRow!.Name).IsEqualTo("api-db");
     }
 }
