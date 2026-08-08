@@ -1,8 +1,10 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/Shionji.Application/Shionji.Application.csproj" />
     <Project Path="src/Shionji.Domain/Shionji.Domain.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Shionji.Application.Tests/Shionji.Application.Tests.csproj" />
     <Project Path="tests/Shionji.Domain.Tests/Shionji.Domain.Tests.csproj" />
   </Folder>
 </Solution>
