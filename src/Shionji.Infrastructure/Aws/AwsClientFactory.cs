@@ -17,6 +17,11 @@ public sealed class AwsClientFactory
 {
     private readonly CredentialProfileStoreChain _chain = new();
 
+    /// <summary>SSO (IAM Identity Center) プロファイルかどうか。エラー文言の出し分けに使う。</summary>
+    public bool IsSsoProfile(ProfileName profile) =>
+        _chain.TryGetProfile(profile.Value, out var p) &&
+        (!string.IsNullOrEmpty(p.Options.SsoStartUrl) || !string.IsNullOrEmpty(p.Options.SsoSession));
+
     public Result<AWSCredentials, ErrorDetail> GetCredentials(ProfileName profile)
     {
         if (!_chain.TryGetAWSCredentials(profile.Value, out var credentials))

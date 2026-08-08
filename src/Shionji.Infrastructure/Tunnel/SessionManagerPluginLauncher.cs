@@ -50,7 +50,8 @@ public sealed class SessionManagerPluginLauncher(
             }
             catch (Exception ex)
             {
-                return Fail(AwsErrors.Classify(ex, FailurePhase.StartSession, plan.Aws.Profile));
+                return Fail(AwsErrors.Classify(
+                    ex, FailurePhase.StartSession, plan.Aws.Profile, clientFactory.IsSsoProfile(plan.Aws.Profile)));
             }
         }
 
