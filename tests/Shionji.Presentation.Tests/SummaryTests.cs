@@ -23,12 +23,12 @@ public class SummaryTests
     }
 
     [Test]
-    public async Task 解決前は未解決と表示される()
+    public async Task 検索前は未検索と表示される()
     {
         var ui = new UiHarness();
         await ui.App.Configs.SaveAsync(TestData.QueryConfig());
 
-        await Assert.That(ui.Main.Rows[0].Summary).Contains("未解決");
+        await Assert.That(ui.Main.Rows[0].Summary).Contains("未検索");
     }
 
     [Test]

@@ -29,6 +29,14 @@
                 <Setter Property="Padding" Value="12,6" />
             </Style>
 
+            <Style x:Key="PaneFooterStyle" TargetType="Border">
+                <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorSecondaryBrush}" />
+                <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
+                <Setter Property="BorderThickness" Value="0,1,0,0" />
+                <Setter Property="CornerRadius" Value="0,0,5,5" />
+                <Setter Property="Padding" Value="8" />
+            </Style>
+
             <!-- 文字まわりは WinUI 標準の text style を継承し、必要な差分だけを足す -->
             <Style x:Key="PaneTitleStyle" TargetType="TextBlock"
                    BasedOn="{StaticResource CaptionTextBlockStyle}">
@@ -165,7 +173,7 @@
                             <ToggleButton Content="接続"
                                           IsChecked="{Binding IsConnected, Mode=OneWay}"
                                           Command="{Binding ToggleConnectionCommand}" />
-                            <Button Content="解決を更新" Command="{Binding RefreshResolutionCommand}" />
+                            <Button Content="リソース自動検索" Command="{Binding RefreshResolutionCommand}" />
                             <Button Content="編集" Command="{Binding EditCommand}" />
                             <Button Content="削除" Command="{Binding DeleteCommand}" />
                         </StackPanel>
@@ -300,8 +308,7 @@
         </Grid.RowDefinitions>
 
         <StackPanel Orientation="Horizontal" Spacing="8">
-            <Button Content="＋ 追加" Command="{Binding AddConfigCommand}" />
-            <Button Content="⟳ 全更新" Command="{Binding RefreshAllCommand}" />
+            <Button Content="⟳ すべて再検索" Command="{Binding RefreshAllCommand}" />
             <TextBox x:Name="FilterBox" PlaceholderText="設定名でフィルタ" Width="220"
                      TextChanged="OnFilterChanged" />
             <TextBlock x:Name="DemoBadge" Text="デモモード" VerticalAlignment="Center"
@@ -315,12 +322,13 @@
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
-            <!-- 左: 設定一覧 -->
+            <!-- 左: 設定一覧。追加は一覧への操作なので下部に置く -->
             <Border Style="{StaticResource PaneStyle}">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
                     <Border Style="{StaticResource PaneHeaderStyle}">
                         <TextBlock Text="{Binding ConfigsHeader}" Style="{StaticResource PaneTitleStyle}" />
@@ -329,6 +337,11 @@
                               SelectedItem="{Binding SelectedRow, Mode=TwoWay}"
                               ItemTemplate="{StaticResource RowTemplate}"
                               SelectionMode="Single" />
+                    <Border Grid.Row="2" Style="{StaticResource PaneFooterStyle}">
+                        <Button Content="＋ 設定を追加" HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Center"
+                                Command="{Binding AddConfigCommand}" />
+                    </Border>
                 </Grid>
             </Border>
 
@@ -355,7 +368,7 @@
                             <TextBlock Text="設定を選択してください" HorizontalAlignment="Center"
                                        Style="{StaticResource BodyTextBlockStyle}"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                            <TextBlock Text="左の一覧から選ぶと、解決結果・接続状態・ログをここに表示します"
+                            <TextBlock Text="左の一覧から選ぶと、検索結果・接続状態・ログをここに表示します"
                                        HorizontalAlignment="Center" TextAlignment="Center" MaxWidth="320"
                                        Style="{StaticResource CaptionTextBlockStyle}"
                                        Foreground="{ThemeResource TextFillColorTertiaryBrush}" />

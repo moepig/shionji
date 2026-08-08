@@ -98,7 +98,7 @@ public class ActivityLogTests
         await harness.Supervisor.StartAsync(config);
 
         var messages = harness.Activity.Recent.Select(e => e.Message).ToList();
-        await Assert.That(messages.Any(m => m.StartsWith("api-db: リソースを解決しています…"))).IsTrue();
+        await Assert.That(messages.Any(m => m.StartsWith("api-db: リソースを自動検索しています…"))).IsTrue();
         await Assert.That(messages.Any(m => m.StartsWith("api-db: セッションを開始しています…"))).IsTrue();
         await Assert.That(messages.Any(m => m.StartsWith("api-db: localhost:13306 で接続しました"))).IsTrue();
     }

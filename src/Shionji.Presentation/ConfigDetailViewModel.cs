@@ -187,7 +187,7 @@ public sealed partial class ConfigDetailViewModel(
     private static string SessionSummary(SessionState state) => state switch
     {
         SessionState.Idle => "未接続",
-        SessionState.Resolving => "リソース解決中…",
+        SessionState.Resolving => "リソース自動検索中…",
         SessionState.Starting => "セッション起動中…",
         SessionState.Established established => $"確立 ({established.Since:HH:mm:ss} から)",
         SessionState.Closing => "切断中…",
@@ -231,8 +231,8 @@ public sealed partial class ConfigDetailViewModel(
     {
         FailurePhase.Credentials => "認証",
         FailurePhase.Permission => "権限",
-        FailurePhase.ResolveDestination => "転送先の解決",
-        FailurePhase.ResolveGateway => "踏み台の解決",
+        FailurePhase.ResolveDestination => "転送先の自動検索",
+        FailurePhase.ResolveGateway => "踏み台の自動検索",
         FailurePhase.StartSession => "セッション開始",
         FailurePhase.Plugin => "plugin",
         _ => phase.ToString(),

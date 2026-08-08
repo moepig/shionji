@@ -88,7 +88,7 @@ public class ConfigDetailViewModelTests
 
         var detail = (ConfigDetailViewModel)ui.Main.DetailContent!;
         await Assert.That(detail.Status).IsEqualTo(StatusKind.Failed);
-        await Assert.That(detail.ErrorText!).Contains("転送先の解決");
+        await Assert.That(detail.ErrorText!).Contains("転送先の自動検索");
     }
 
     [Test]

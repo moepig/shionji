@@ -32,7 +32,8 @@ public static class TunnelPlanner
 
             case Destination.Query q:
                 if (destinationResource is null)
-                    return Fail(FailurePhase.ResolveDestination, "DestinationNotResolved", "転送先リソースが未解決です。");
+                    return Fail(
+                        FailurePhase.ResolveDestination, "DestinationNotResolved", "転送先リソースが特定されていません。");
 
                 destinationHost = destinationResource.Host;
                 switch (q.Port)
@@ -80,7 +81,8 @@ public static class TunnelPlanner
             case GatewaySpec.Ec2 { Selector: Ec2Selector.ByQuery } or GatewaySpec.Ecs:
             {
                 if (gatewayResource is null)
-                    return Fail(FailurePhase.ResolveGateway, "GatewayNotResolved", "踏み台リソースが未解決です。");
+                    return Fail(
+                        FailurePhase.ResolveGateway, "GatewayNotResolved", "踏み台リソースが特定されていません。");
                 if (gatewayResource.SsmTarget is not { } target)
                     return Fail(FailurePhase.ResolveGateway, "NotSessionCapable", "踏み台リソースに SSM セッションを張れません。");
                 if (destinationHost is null)

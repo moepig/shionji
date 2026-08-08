@@ -116,7 +116,7 @@ public sealed partial class ConfigRowViewModel(MainViewModel owner, ConfigId con
                         return "検索エラー";
 
                     default:
-                        return view is { IsResolving: true } ? "解決中…" : "未解決";
+                        return view is { IsResolving: true } ? "自動検索中…" : "未検索";
                 }
 
             default:
