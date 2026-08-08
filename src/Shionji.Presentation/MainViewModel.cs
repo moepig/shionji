@@ -37,6 +37,19 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty]
     public partial ObservableObject? DetailContent { get; set; }
 
+    /// <summary>左ペインの見出し (表示中の件数つき)。</summary>
+    [ObservableProperty]
+    public partial string ConfigsHeader { get; set; } = "設定";
+
+    /// <summary>右ペインの見出し。編集中は表示を切り替える。</summary>
+    [ObservableProperty]
+    public partial string DetailHeader { get; set; } = "詳細";
+
+    partial void OnDetailContentChanged(ObservableObject? value) =>
+        DetailHeader = value is ConfigEditorViewModel editor
+            ? (editor.IsNew ? "詳細 — 新規作成" : "詳細 — 編集")
+            : "詳細";
+
     // --- ステータスバー ---
 
     /// <summary>最新の動作。ステータスバーに 1 行で出す。</summary>
@@ -88,6 +101,9 @@ public sealed partial class MainViewModel : ObservableObject
         _sessionLog.LineAppended += (_, e) =>
             _dispatcher.Post(() => (DetailContent as ConfigDetailViewModel)?.AppendLog(e));
         _resolution.ViewChanged += (_, id) => _dispatcher.Post(() => RefreshConfig(id));
+
+        // 生成時点で設定が読み込み済みのこともあるため、初期状態を組み立てておく
+        RebuildRows();
     }
 
     partial void OnFilterTextChanged(string value) => RebuildRows();
@@ -245,6 +261,8 @@ public sealed partial class MainViewModel : ObservableObject
             else
                 Rows.Move(currentIndex, i);
         }
+
+        ConfigsHeader = $"設定 ({Rows.Count})";
     }
 
     private void OnSessionChanged(SessionChangedEventArgs e)

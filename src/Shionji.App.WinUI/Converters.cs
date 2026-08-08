@@ -59,11 +59,16 @@ public sealed partial class BoolToVisibilityConverter : IValueConverter
         throw new NotSupportedException();
 }
 
-/// <summary>null / 空文字 → Collapsed。</summary>
+/// <summary>null / 空文字 → Collapsed。parameter="Invert" で反転 (空状態の案内に使う)。</summary>
 public sealed partial class NullToVisibilityConverter : IValueConverter
 {
-    public object Convert(object value, Type targetType, object parameter, string language) =>
-        value is null || (value is string s && s.Length == 0) ? Visibility.Collapsed : Visibility.Visible;
+    public object Convert(object value, Type targetType, object parameter, string language)
+    {
+        var hasValue = value is not null && !(value is string s && s.Length == 0);
+        if (parameter is string p && p.Equals("Invert", StringComparison.OrdinalIgnoreCase))
+            hasValue = !hasValue;
+        return hasValue ? Visibility.Visible : Visibility.Collapsed;
+    }
 
     public object ConvertBack(object value, Type targetType, object parameter, string language) =>
         throw new NotSupportedException();

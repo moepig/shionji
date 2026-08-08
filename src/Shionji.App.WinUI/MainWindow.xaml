@@ -13,6 +13,28 @@
             <local:NullToVisibilityConverter x:Key="NullToVis" />
             <local:EnumIndexConverter x:Key="EnumIndex" />
 
+            <!-- 一覧と詳細をカードとして囲み、境界を明示する -->
+            <Style x:Key="PaneStyle" TargetType="Border">
+                <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
+                <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="CornerRadius" Value="6" />
+            </Style>
+
+            <Style x:Key="PaneHeaderStyle" TargetType="Border">
+                <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorSecondaryBrush}" />
+                <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
+                <Setter Property="BorderThickness" Value="0,0,0,1" />
+                <Setter Property="CornerRadius" Value="5,5,0,0" />
+                <Setter Property="Padding" Value="12,6" />
+            </Style>
+
+            <Style x:Key="PaneTitleStyle" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+            </Style>
+
             <DataTemplate x:Key="RowTemplate">
                 <Grid Height="48" ColumnSpacing="10">
                     <Grid.ColumnDefinitions>
@@ -37,7 +59,7 @@
 
             <DataTemplate x:Key="DetailTemplate">
                 <ScrollViewer>
-                    <StackPanel Spacing="10" Margin="4,0,12,12">
+                    <StackPanel Spacing="10">
                         <TextBlock Text="{Binding Name}" FontSize="22" FontWeight="SemiBold" />
                         <TextBlock Text="{Binding Overview}" Opacity="0.8" />
                         <TextBlock Text="{Binding GatewayText}" Opacity="0.8" />
@@ -89,10 +111,7 @@
 
             <DataTemplate x:Key="EditorTemplate">
                 <ScrollViewer>
-                    <StackPanel Spacing="10" Margin="4,0,12,12" MaxWidth="480"
-                                HorizontalAlignment="Left">
-                        <TextBlock Text="設定の編集" FontSize="22" FontWeight="SemiBold" />
-
+                    <StackPanel Spacing="10" MaxWidth="480" HorizontalAlignment="Left">
                         <TextBox Header="設定名" Text="{Binding Name, Mode=TwoWay}" />
                         <TextBox Header="AWS プロファイル" Text="{Binding Profile, Mode=TwoWay}" />
                         <TextBox Header="リージョン" Text="{Binding Region, Mode=TwoWay}" />
@@ -218,16 +237,53 @@
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
-            <ListView ItemsSource="{Binding Rows}"
-                      SelectedItem="{Binding SelectedRow, Mode=TwoWay}"
-                      ItemTemplate="{StaticResource RowTemplate}"
-                      SelectionMode="Single" />
+            <!-- 左: 設定一覧 -->
+            <Border Style="{StaticResource PaneStyle}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <Border Style="{StaticResource PaneHeaderStyle}">
+                        <TextBlock Text="{Binding ConfigsHeader}" Style="{StaticResource PaneTitleStyle}" />
+                    </Border>
+                    <ListView Grid.Row="1" ItemsSource="{Binding Rows}"
+                              SelectedItem="{Binding SelectedRow, Mode=TwoWay}"
+                              ItemTemplate="{StaticResource RowTemplate}"
+                              SelectionMode="Single" />
+                </Grid>
+            </Border>
 
-            <ContentControl Grid.Column="1"
-                            Content="{Binding DetailContent}"
-                            ContentTemplateSelector="{StaticResource DetailSelector}"
-                            HorizontalContentAlignment="Stretch"
-                            VerticalContentAlignment="Stretch" />
+            <!-- 右: 詳細 / 編集 -->
+            <Border Grid.Column="1" Style="{StaticResource PaneStyle}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <Border Style="{StaticResource PaneHeaderStyle}">
+                        <TextBlock Text="{Binding DetailHeader}" Style="{StaticResource PaneTitleStyle}" />
+                    </Border>
+
+                    <Grid Grid.Row="1" Padding="12">
+                        <ContentControl Content="{Binding DetailContent}"
+                                        ContentTemplateSelector="{StaticResource DetailSelector}"
+                                        HorizontalContentAlignment="Stretch"
+                                        VerticalContentAlignment="Stretch" />
+
+                        <!-- 何も選択していないときに空白の理由を示す -->
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6"
+                                    Visibility="{Binding DetailContent, Converter={StaticResource NullToVis}, ConverterParameter=Invert}">
+                            <TextBlock Text="設定を選択してください" HorizontalAlignment="Center"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Text="左の一覧から選ぶと、解決結果・接続状態・ログをここに表示します"
+                                       HorizontalAlignment="Center" FontSize="12" TextWrapping="Wrap"
+                                       TextAlignment="Center" MaxWidth="320"
+                                       Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </Border>
         </Grid>
 
         <!-- ステータスバー: 最新の動作を 1 行で出し、そこから履歴とログファイルへ辿れる -->
