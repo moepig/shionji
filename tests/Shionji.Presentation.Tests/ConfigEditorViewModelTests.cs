@@ -9,7 +9,7 @@ public class ConfigEditorViewModelTests
     private static ConfigEditorViewModel NewEditor(UiHarness ui)
     {
         ui.Main.AddConfigCommand.Execute(null);
-        return (ConfigEditorViewModel)ui.Main.DetailContent!;
+        return ui.EditorWindow.Last;
     }
 
     [Test]
@@ -115,7 +115,7 @@ public class ConfigEditorViewModelTests
 
         detail.EditCommand.Execute(null);
 
-        var editor = (ConfigEditorViewModel)ui.Main.DetailContent!;
+        var editor = ui.EditorWindow.Last;
         await Assert.That(editor.IsNew).IsFalse();
         await Assert.That(editor.Name).IsEqualTo("query-test");
         await Assert.That(editor.DestinationKind).IsEqualTo(DestinationKind.ElastiCache);
@@ -139,7 +139,7 @@ public class ConfigEditorViewModelTests
 
         var detail = (ConfigDetailViewModel)ui.Main.DetailContent!;
         detail.EditCommand.Execute(null);
-        var editor = (ConfigEditorViewModel)ui.Main.DetailContent!;
+        var editor = ui.EditorWindow.Last;
         editor.Name = "api-db-2";
 
         await editor.SaveCommand.ExecuteAsync(null);

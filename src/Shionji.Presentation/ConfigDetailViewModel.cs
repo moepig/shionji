@@ -12,9 +12,15 @@ namespace Shionji.Presentation;
 public sealed partial class ConfigDetailViewModel(
     MainViewModel owner,
     Domain.ValueObjects.ConfigId configId,
-    IClipboardService clipboard) : ObservableObject
+    IClipboardService clipboard,
+    IUiDispatcher dispatcher) : ObservableObject
 {
     private const int MaxLogLines = 200;
+
+    /// <summary>コピー完了表示を出しておく時間。</summary>
+    private static readonly TimeSpan CopyConfirmationDuration = TimeSpan.FromSeconds(1.6);
+
+    private int _copyGeneration;
 
     public Domain.ValueObjects.ConfigId ConfigId { get; } = configId;
 
@@ -29,6 +35,10 @@ public sealed partial class ConfigDetailViewModel(
 
     [ObservableProperty]
     public partial string DestinationText { get; set; } = string.Empty;
+
+    /// <summary>転送先を特定できていない。値を赤く出す。</summary>
+    [ObservableProperty]
+    public partial bool DestinationHasError { get; set; }
 
     [ObservableProperty]
     public partial string GatewayText { get; set; } = string.Empty;
@@ -54,6 +64,13 @@ public sealed partial class ConfigDetailViewModel(
     /// <summary>セッションログを出すか。</summary>
     [ObservableProperty]
     public partial bool HasLog { get; set; }
+
+    /// <summary>コピー完了の一時表示。</summary>
+    [ObservableProperty]
+    public partial bool IsCopyConfirmationVisible { get; set; }
+
+    [ObservableProperty]
+    public partial string CopyConfirmationText { get; set; } = string.Empty;
 
     [ObservableProperty]
     public partial bool IsConnected { get; set; }
@@ -83,7 +100,34 @@ public sealed partial class ConfigDetailViewModel(
     private void CopyLocalEndpoint()
     {
         if (LocalEndpoint is { } endpoint)
-            clipboard.SetText(endpoint);
+            CopyToClipboard(endpoint, "接続先をコピーしました");
+    }
+
+    /// <summary>セッションログ全体をクリップボードへ。</summary>
+    [RelayCommand]
+    private void CopyLog()
+    {
+        if (LogLines.Count == 0)
+            return;
+
+        CopyToClipboard(
+            string.Join(Environment.NewLine, LogLines), $"ログ {LogLines.Count} 行をコピーしました");
+    }
+
+    /// <summary>コピーしたことを一時的に知らせる。連続でコピーしても最後の 1 回だけが残る。</summary>
+    private void CopyToClipboard(string text, string confirmation)
+    {
+        clipboard.SetText(text);
+        CopyConfirmationText = confirmation;
+        IsCopyConfirmationVisible = true;
+
+        var generation = ++_copyGeneration;
+        _ = Task.Delay(CopyConfirmationDuration).ContinueWith(_ =>
+            dispatcher.Post(() =>
+            {
+                if (_copyGeneration == generation)
+                    IsCopyConfirmationVisible = false;
+            }));
     }
 
     [RelayCommand]
@@ -144,6 +188,7 @@ public sealed partial class ConfigDetailViewModel(
         RegionText = config.Aws.Region.Value;
         GatewayText = GatewaySummary(config.Gateway);
         DestinationText = ConfigRowViewModel.DestinationSummary(config, view);
+        DestinationHasError = ConfigRowViewModel.HasDestinationError(config, view);
         LocalPortText = LocalSummary(config, localPort);
         Status = ConfigRowViewModel.StatusOf(state);
         IsConnected = state is SessionState.Resolving

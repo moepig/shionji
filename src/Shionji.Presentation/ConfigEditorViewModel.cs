@@ -1,7 +1,9 @@
+using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Shionji.Domain.Configuration;
 using Shionji.Domain.Primitives;
+using Shionji.Domain.Resolution;
 using Shionji.Domain.ValueObjects;
 
 namespace Shionji.Presentation;
@@ -31,6 +33,11 @@ public sealed partial class ConfigEditorViewModel : ObservableObject
 
     public bool IsNew { get; }
 
+    /// <summary>編集が終わった (保存 / キャンセル)。別ウィンドウで開いている場合はこれで閉じる。</summary>
+    public event EventHandler? Closed;
+
+    public string WindowTitle => IsNew ? "設定の追加" : "設定の編集";
+
     private ConfigEditorViewModel(MainViewModel owner, ConfigId id, bool isNew)
     {
         _owner = owner;
@@ -57,6 +64,7 @@ public sealed partial class ConfigEditorViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(IsCacheDestination))]
     [NotifyPropertyChangedFor(nameof(IsAuroraDestination))]
     [NotifyPropertyChangedFor(nameof(IsEcsTaskDestination))]
+    [NotifyPropertyChangedFor(nameof(CanTestSearch))]
     [ObservableProperty]
     public partial DestinationKind DestinationKind { get; set; }
 
@@ -103,6 +111,7 @@ public sealed partial class ConfigEditorViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(IsEc2ByIdGateway))]
     [NotifyPropertyChangedFor(nameof(IsEc2ByQueryGateway))]
     [NotifyPropertyChangedFor(nameof(IsEcsGateway))]
+    [NotifyPropertyChangedFor(nameof(CanTestSearch))]
     [ObservableProperty]
     public partial GatewayKind GatewayKind { get; set; }
 
@@ -140,6 +149,116 @@ public sealed partial class ConfigEditorViewModel : ObservableObject
     [ObservableProperty]
     public partial string? ValidationError { get; set; }
 
+    // --- 入力した条件での検索テスト ---
+
+    /// <summary>検索テストの結果 (見つかったリソース、または理由)。</summary>
+    [ObservableProperty]
+    public partial string? SearchTestResult { get; set; }
+
+    [ObservableProperty]
+    public partial bool SearchTestFailed { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsTestingSearch { get; set; }
+
+    /// <summary>複数一致したときの候補。</summary>
+    public ObservableCollection<string> SearchTestCandidates { get; } = [];
+
+    /// <summary>検索テストを出す価値があるか (検索条件を使う設定のときだけ)。</summary>
+    public bool CanTestSearch => IsQueryDestination || IsEc2ByQueryGateway || IsEcsGateway;
+
+    /// <summary>設定を保存する前に、入力した条件で実際に検索してみる。</summary>
+    [RelayCommand]
+    private async Task TestSearchAsync()
+    {
+        SearchTestCandidates.Clear();
+        SearchTestResult = null;
+        SearchTestFailed = false;
+
+        AwsContext aws;
+        try
+        {
+            aws = new AwsContext(
+                Require(ProfileName.Create(Profile)),
+                Require(AwsRegion.Create(Region)));
+        }
+        catch (FormException ex)
+        {
+            SearchTestFailed = true;
+            SearchTestResult = ex.Message;
+            return;
+        }
+
+        IsTestingSearch = true;
+        try
+        {
+            var lines = new List<string>();
+            var failed = false;
+
+            foreach (var (label, query) in CollectQueriesToTest())
+            {
+                if (query is null)
+                    continue;
+
+                var outcome = await _owner.TestSearchAsync(aws, query);
+                lines.Add($"{label}: {DescribeOutcome(outcome)}");
+                if (outcome is not ResolutionOutcome.Resolved)
+                    failed = true;
+                if (outcome is ResolutionOutcome.Ambiguous ambiguous)
+                {
+                    foreach (var candidate in ambiguous.Candidates)
+                        SearchTestCandidates.Add(DescribeCandidate(candidate));
+                }
+            }
+
+            SearchTestFailed = failed;
+            SearchTestResult = lines.Count > 0 ? string.Join(Environment.NewLine, lines) : "検索する条件がありません。";
+        }
+        finally
+        {
+            IsTestingSearch = false;
+        }
+    }
+
+    /// <summary>いま入力されている条件のうち、検索できるものを取り出す。</summary>
+    private IEnumerable<(string Label, ResourceQuery? Query)> CollectQueriesToTest()
+    {
+        if (IsQueryDestination)
+            yield return ("転送先", TryBuild(BuildDestinationQuery));
+        if (IsEc2ByQueryGateway || IsEcsGateway)
+            yield return ("踏み台", TryBuild(BuildGatewayQuery));
+    }
+
+    private ResourceQuery? TryBuild(Func<ResourceQuery> build)
+    {
+        try
+        {
+            return build();
+        }
+        catch (FormException ex)
+        {
+            SearchTestFailed = true;
+            SearchTestResult = ex.Message;
+            return null;
+        }
+    }
+
+    private static string DescribeOutcome(ResolutionOutcome outcome) => outcome switch
+    {
+        ResolutionOutcome.Resolved resolved =>
+            $"{resolved.Resource.DisplayName} が見つかりました" +
+            (resolved.Resource.Host is { } host ? $" ({host.Value})" : string.Empty),
+        ResolutionOutcome.NotFound => "条件に一致するリソースがありません",
+        ResolutionOutcome.Ambiguous ambiguous => $"{ambiguous.Candidates.Count} 件が一致しました。条件を絞り込んでください",
+        ResolutionOutcome.Failed failed => $"検索に失敗しました - {failed.Error.Message}",
+        _ => "不明な結果",
+    };
+
+    private static string DescribeCandidate(ResolvedResource resource) =>
+        resource.Host is { } host
+            ? $"{resource.DisplayName} ({host.Value})"
+            : resource.DisplayName;
+
     public static ConfigEditorViewModel ForNew(MainViewModel owner) =>
         new(owner, ConfigId.New(), isNew: true);
 
@@ -174,10 +293,15 @@ public sealed partial class ConfigEditorViewModel : ObservableObject
         ValidationError = null;
         await _owner.SaveConfigAsync(built.Value);
         _owner.CloseEditor(built.Value.Id);
+        Closed?.Invoke(this, EventArgs.Empty);
     }
 
     [RelayCommand]
-    private void Cancel() => _owner.CloseEditor(null);
+    private void Cancel()
+    {
+        _owner.CloseEditor(null);
+        Closed?.Invoke(this, EventArgs.Empty);
+    }
 
     /// <summary>フォーム入力から検証済みの ForwardingConfig を組み立てる。</summary>
     public Result<ForwardingConfig, string> Build()
@@ -217,13 +341,25 @@ public sealed partial class ConfigEditorViewModel : ObservableObject
                 ParsePort(DestPortText, "転送先ポート"));
         }
 
+        var query = BuildDestinationQuery();
+
+        PortSelection port = string.IsNullOrWhiteSpace(DestPortText)
+            ? PortSelection.FromResource.Instance
+            : new PortSelection.Explicit(ParsePort(DestPortText, "転送先ポート"));
+
+        return new Destination.Query(query, port);
+    }
+
+    /// <summary>転送先の検索条件。検索テストと保存の両方から使う。</summary>
+    private ResourceQuery BuildDestinationQuery()
+    {
         var name = string.IsNullOrWhiteSpace(DestNamePattern)
             ? null
             : Require(NamePattern.Create(DestNamePattern));
         var tags = ParseTags(DestTagsText);
         var match = DestPickFirst ? MatchPolicy.PickFirst : MatchPolicy.RequireSingle;
 
-        ResourceQuery query = DestinationKind switch
+        return DestinationKind switch
         {
             DestinationKind.ElastiCache => new ElastiCacheQuery(name, tags, match, CacheRole),
             DestinationKind.Aurora => new AuroraQuery(name, tags, match, AuroraRole),
@@ -235,13 +371,22 @@ public sealed partial class ConfigEditorViewModel : ObservableObject
                 match),
             _ => throw new FormException("転送先の種別が不正です。"),
         };
-
-        PortSelection port = string.IsNullOrWhiteSpace(DestPortText)
-            ? PortSelection.FromResource.Instance
-            : new PortSelection.Explicit(ParsePort(DestPortText, "転送先ポート"));
-
-        return new Destination.Query(query, port);
     }
+
+    /// <summary>踏み台の検索条件。検索を伴わない経路では例外になる。</summary>
+    private ResourceQuery BuildGatewayQuery() => GatewayKind switch
+    {
+        GatewayKind.Ec2ByQuery => new Ec2Query(
+            string.IsNullOrWhiteSpace(GwNamePattern) ? null : Require(NamePattern.Create(GwNamePattern)),
+            ParseTags(GwTagsText),
+            GwPickFirst ? MatchPolicy.PickFirst : MatchPolicy.RequireSingle),
+        GatewayKind.Ecs => new EcsTaskQuery(
+            Require(ClusterName.Create(GwCluster)),
+            Require(ServiceName.Create(GwService)),
+            string.IsNullOrWhiteSpace(GwContainer) ? null : Require(ContainerName.Create(GwContainer)),
+            MatchPolicy.RequireSingle),
+        _ => throw new FormException("この経路は検索条件を使いません。"),
+    };
 
     private GatewaySpec BuildGateway() => GatewayKind switch
     {

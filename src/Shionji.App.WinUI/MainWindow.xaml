@@ -12,6 +12,7 @@
             <local:BoolToVisibilityConverter x:Key="BoolToVis" />
             <local:NullToVisibilityConverter x:Key="NullToVis" />
             <local:EnumIndexConverter x:Key="EnumIndex" />
+            <local:ErrorBrushConverter x:Key="ErrorBrush" />
 
             <!-- 一覧と詳細をカードとして囲み、境界を明示する -->
             <Style x:Key="PaneStyle" TargetType="Border">
@@ -73,9 +74,25 @@
                         <!-- 行は 2 行固定なので、折り返さず中央省略する -->
                         <TextBlock Text="{Binding Name}" Style="{StaticResource BodyStrongTextBlockStyle}"
                                    TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
-                        <TextBlock Text="{Binding Summary}" Style="{StaticResource CaptionTextBlockStyle}"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                   TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+                        <!-- 転送先を特定できていないときは、その部分だけ赤くする -->
+                        <Grid ColumnSpacing="4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="{Binding LocalText}" Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       TextWrapping="NoWrap" />
+                            <TextBlock Grid.Column="1" Text="{Binding DestinationText}"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Grid.Column="1" Text="{Binding DestinationText}"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="IndianRed"
+                                       TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
+                                       Visibility="{Binding DestinationHasError, Converter={StaticResource BoolToVis}}" />
+                        </Grid>
                     </StackPanel>
                     <ToggleButton Grid.Column="2" VerticalAlignment="Center"
                                   Content="&#x23FB;"
@@ -89,7 +106,7 @@
                     <StackPanel Spacing="8">
                         <TextBlock Text="{Binding Name}" Style="{StaticResource SubtitleTextBlockStyle}" />
 
-                        <TextBlock Text="接続内容" Style="{StaticResource SectionHeadingStyle}" />
+                        <TextBlock Text="設定内容" Style="{StaticResource SectionHeadingStyle}" />
                         <Grid ColumnSpacing="12" RowSpacing="6">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" MinWidth="92" />
@@ -117,7 +134,8 @@
 
                             <TextBlock Grid.Row="3" Text="転送先" Style="{StaticResource FieldLabelStyle}" />
                             <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding DestinationText}"
-                                       Style="{StaticResource FieldValueStyle}" />
+                                       Style="{StaticResource FieldValueStyle}"
+                                       Foreground="{Binding DestinationHasError, Converter={StaticResource ErrorBrush}}" />
 
                             <TextBlock Grid.Row="4" Text="ローカル" Style="{StaticResource FieldLabelStyle}" />
                             <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Spacing="8">
@@ -126,6 +144,19 @@
                                 <Button Content="コピー"
                                         Command="{Binding CopyLocalEndpointCommand}"
                                         Visibility="{Binding LocalEndpoint, Converter={StaticResource NullToVis}}" />
+                                <!-- コピー完了の一時表示。表示時に既定のアニメーションで現れる -->
+                                <Border Background="{ThemeResource SystemFillColorSuccessBackgroundBrush}"
+                                        CornerRadius="12" Padding="10,2" VerticalAlignment="Center"
+                                        Visibility="{Binding IsCopyConfirmationVisible, Converter={StaticResource BoolToVis}}">
+                                    <Border.Transitions>
+                                        <TransitionCollection>
+                                            <EntranceThemeTransition FromVerticalOffset="0" FromHorizontalOffset="12" />
+                                        </TransitionCollection>
+                                    </Border.Transitions>
+                                    <TextBlock Text="{Binding CopyConfirmationText}"
+                                               Style="{StaticResource CaptionTextBlockStyle}"
+                                               Foreground="{ThemeResource SystemFillColorSuccessBrush}" />
+                                </Border>
                             </StackPanel>
                         </Grid>
 
@@ -173,13 +204,18 @@
                             <ToggleButton Content="接続"
                                           IsChecked="{Binding IsConnected, Mode=OneWay}"
                                           Command="{Binding ToggleConnectionCommand}" />
-                            <Button Content="リソース自動検索" Command="{Binding RefreshResolutionCommand}" />
+                            <Button Content="リソース再検索" Command="{Binding RefreshResolutionCommand}" />
                             <Button Content="編集" Command="{Binding EditCommand}" />
                             <Button Content="削除" Command="{Binding DeleteCommand}" />
                         </StackPanel>
 
-                        <TextBlock Text="セッションログ" Style="{StaticResource SectionHeadingStyle}"
-                                   Visibility="{Binding HasLog, Converter={StaticResource BoolToVis}}" />
+                        <StackPanel Orientation="Horizontal" Spacing="8"
+                                    Visibility="{Binding HasLog, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="セッションログ" Style="{StaticResource SectionHeadingStyle}"
+                                       VerticalAlignment="Center" />
+                            <Button Content="コピー" VerticalAlignment="Bottom"
+                                    Command="{Binding CopyLogCommand}" />
+                        </StackPanel>
                         <ListView ItemsSource="{Binding LogLines}" MaxHeight="180"
                                   SelectionMode="None"
                                   Visibility="{Binding HasLog, Converter={StaticResource BoolToVis}}">
@@ -189,116 +225,20 @@
                                     <Setter Property="Padding" Value="8,0" />
                                 </Style>
                             </ListView.ItemContainerStyle>
+                            <ListView.ItemTemplate>
+                                <DataTemplate>
+                                    <!-- 1 行ずつ選択してコピーできるようにする -->
+                                    <TextBlock Text="{Binding}" IsTextSelectionEnabled="True"
+                                               Style="{StaticResource CaptionTextBlockStyle}"
+                                               TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
                         </ListView>
                     </StackPanel>
                 </ScrollViewer>
             </DataTemplate>
 
-            <DataTemplate x:Key="EditorTemplate">
-                <ScrollViewer>
-                    <StackPanel Spacing="10" MaxWidth="480" HorizontalAlignment="Left">
-                        <TextBox Header="設定名" Text="{Binding Name, Mode=TwoWay}" />
-                        <TextBox Header="AWS プロファイル" Text="{Binding Profile, Mode=TwoWay}" />
-                        <TextBox Header="リージョン" Text="{Binding Region, Mode=TwoWay}" />
-                        <TextBox Header="ローカルポート (空 = 自動割当)"
-                                 Text="{Binding LocalPortText, Mode=TwoWay}" />
 
-                        <ComboBox Header="転送先の種別" MinWidth="240"
-                                  SelectedIndex="{Binding DestinationKind, Mode=TwoWay, Converter={StaticResource EnumIndex}, ConverterParameter=DestinationKind}">
-                            <ComboBoxItem Content="エンドポイント / IP 直接指定" />
-                            <ComboBoxItem Content="ElastiCache (検索)" />
-                            <ComboBoxItem Content="Aurora (検索)" />
-                            <ComboBoxItem Content="EC2 インスタンス (検索)" />
-                            <ComboBoxItem Content="ECS タスク (検索)" />
-                        </ComboBox>
-
-                        <TextBox Header="転送先ホスト" Text="{Binding DestHost, Mode=TwoWay}"
-                                 Visibility="{Binding IsStaticDestination, Converter={StaticResource BoolToVis}}" />
-
-                        <StackPanel Spacing="10"
-                                    Visibility="{Binding IsNamedQueryDestination, Converter={StaticResource BoolToVis}}">
-                            <TextBox Header="名前パターン (glob: * ?)"
-                                     Text="{Binding DestNamePattern, Mode=TwoWay}" />
-                            <TextBox Header="タグ条件 (Key=v1|v2; Key2=v3)"
-                                     Text="{Binding DestTagsText, Mode=TwoWay}" />
-                        </StackPanel>
-
-                        <ComboBox Header="エンドポイント" MinWidth="240"
-                                  Visibility="{Binding IsCacheDestination, Converter={StaticResource BoolToVis}}"
-                                  SelectedIndex="{Binding CacheRole, Mode=TwoWay, Converter={StaticResource EnumIndex}, ConverterParameter=CacheRole}">
-                            <ComboBoxItem Content="Primary" />
-                            <ComboBoxItem Content="Reader" />
-                            <ComboBoxItem Content="Configuration" />
-                        </ComboBox>
-
-                        <ComboBox Header="エンドポイント" MinWidth="240"
-                                  Visibility="{Binding IsAuroraDestination, Converter={StaticResource BoolToVis}}"
-                                  SelectedIndex="{Binding AuroraRole, Mode=TwoWay, Converter={StaticResource EnumIndex}, ConverterParameter=AuroraRole}">
-                            <ComboBoxItem Content="Writer" />
-                            <ComboBoxItem Content="Reader" />
-                        </ComboBox>
-
-                        <StackPanel Spacing="10"
-                                    Visibility="{Binding IsEcsTaskDestination, Converter={StaticResource BoolToVis}}">
-                            <TextBox Header="クラスター" Text="{Binding DestCluster, Mode=TwoWay}" />
-                            <TextBox Header="サービス (任意)" Text="{Binding DestService, Mode=TwoWay}" />
-                            <TextBox Header="コンテナ (任意)" Text="{Binding DestContainer, Mode=TwoWay}" />
-                        </StackPanel>
-
-                        <TextBox Header="転送先ポート (ElastiCache / Aurora は空で既定ポート)"
-                                 Text="{Binding DestPortText, Mode=TwoWay}" />
-
-                        <CheckBox Content="複数一致時は先頭を採用 (PickFirst)"
-                                  IsChecked="{Binding DestPickFirst, Mode=TwoWay}"
-                                  Visibility="{Binding IsQueryDestination, Converter={StaticResource BoolToVis}}" />
-
-                        <ComboBox Header="経路 (踏み台)" MinWidth="240"
-                                  SelectedIndex="{Binding GatewayKind, Mode=TwoWay, Converter={StaticResource EnumIndex}, ConverterParameter=GatewayKind}">
-                            <ComboBoxItem Content="直接 (転送先に SSM セッション)" />
-                            <ComboBoxItem Content="EC2 踏み台 (インスタンス ID)" />
-                            <ComboBoxItem Content="EC2 踏み台 (検索)" />
-                            <ComboBoxItem Content="ECS 踏み台 (ECS Exec)" />
-                        </ComboBox>
-
-                        <TextBox Header="インスタンス ID" Text="{Binding GwInstanceId, Mode=TwoWay}"
-                                 Visibility="{Binding IsEc2ByIdGateway, Converter={StaticResource BoolToVis}}" />
-
-                        <StackPanel Spacing="10"
-                                    Visibility="{Binding IsEc2ByQueryGateway, Converter={StaticResource BoolToVis}}">
-                            <TextBox Header="名前パターン" Text="{Binding GwNamePattern, Mode=TwoWay}" />
-                            <TextBox Header="タグ条件" Text="{Binding GwTagsText, Mode=TwoWay}" />
-                            <CheckBox Content="複数一致時は先頭を採用 (PickFirst)"
-                                      IsChecked="{Binding GwPickFirst, Mode=TwoWay}" />
-                        </StackPanel>
-
-                        <StackPanel Spacing="10"
-                                    Visibility="{Binding IsEcsGateway, Converter={StaticResource BoolToVis}}">
-                            <TextBox Header="クラスター" Text="{Binding GwCluster, Mode=TwoWay}" />
-                            <TextBox Header="サービス" Text="{Binding GwService, Mode=TwoWay}" />
-                            <TextBox Header="コンテナ (任意)" Text="{Binding GwContainer, Mode=TwoWay}" />
-                        </StackPanel>
-
-                        <CheckBox Content="予期せぬ切断時に自動再接続する"
-                                  IsChecked="{Binding AutoReconnect, Mode=TwoWay}" />
-                        <CheckBox Content="アプリ起動時に自動接続する"
-                                  IsChecked="{Binding ConnectOnLaunch, Mode=TwoWay}" />
-
-                        <TextBlock Text="{Binding ValidationError}" TextWrapping="Wrap"
-                                   Foreground="IndianRed"
-                                   Visibility="{Binding ValidationError, Converter={StaticResource NullToVis}}" />
-
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <Button Content="保存" Style="{StaticResource AccentButtonStyle}"
-                                    Command="{Binding SaveCommand}" />
-                            <Button Content="キャンセル" Command="{Binding CancelCommand}" />
-                        </StackPanel>
-                    </StackPanel>
-                </ScrollViewer>
-            </DataTemplate>
-
-            <local:DetailTemplateSelector x:Key="DetailSelector"
-                                          Detail="{StaticResource DetailTemplate}"
-                                          Editor="{StaticResource EditorTemplate}" />
         </Grid.Resources>
 
         <Grid.RowDefinitions>
@@ -308,8 +248,7 @@
         </Grid.RowDefinitions>
 
         <StackPanel Orientation="Horizontal" Spacing="8">
-            <Button Content="⟳ すべて再検索" Command="{Binding RefreshAllCommand}" />
-            <TextBox x:Name="FilterBox" PlaceholderText="設定名でフィルタ" Width="220"
+            <TextBox x:Name="FilterBox" PlaceholderText="設定名でフィルタ" Width="260"
                      TextChanged="OnFilterChanged" />
             <TextBlock x:Name="DemoBadge" Text="デモモード" VerticalAlignment="Center"
                        Style="{StaticResource BodyStrongTextBlockStyle}"
@@ -330,8 +269,30 @@
                         <RowDefinition Height="*" />
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
-                    <Border Style="{StaticResource PaneHeaderStyle}">
-                        <TextBlock Text="{Binding ConfigsHeader}" Style="{StaticResource PaneTitleStyle}" />
+                    <Border Style="{StaticResource PaneHeaderStyle}" Padding="12,2,4,2">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="{Binding ConfigsHeader}" VerticalAlignment="Center"
+                                       Style="{StaticResource PaneTitleStyle}" />
+                            <!-- 一覧全体に対する操作はここに畳む -->
+                            <Button Grid.Column="1" Content="&#xE700;" ToolTipService.ToolTip="一覧の操作"
+                                    FontFamily="{ThemeResource SymbolThemeFontFamily}"
+                                    Background="Transparent" BorderThickness="0" Padding="8,4">
+                                <Button.Flyout>
+                                    <MenuFlyout>
+                                        <MenuFlyoutItem Text="すべて再検索"
+                                                        Command="{Binding RefreshAllCommand}">
+                                            <MenuFlyoutItem.Icon>
+                                                <FontIcon Glyph="&#xE72C;" />
+                                            </MenuFlyoutItem.Icon>
+                                        </MenuFlyoutItem>
+                                    </MenuFlyout>
+                                </Button.Flyout>
+                            </Button>
+                        </Grid>
                     </Border>
                     <ListView Grid.Row="1" ItemsSource="{Binding Rows}"
                               SelectedItem="{Binding SelectedRow, Mode=TwoWay}"
@@ -358,7 +319,7 @@
 
                     <Grid Grid.Row="1" Padding="12">
                         <ContentControl Content="{Binding DetailContent}"
-                                        ContentTemplateSelector="{StaticResource DetailSelector}"
+                                        ContentTemplate="{StaticResource DetailTemplate}"
                                         HorizontalContentAlignment="Stretch"
                                         VerticalContentAlignment="Stretch" />
 

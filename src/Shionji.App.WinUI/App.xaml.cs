@@ -118,6 +118,7 @@ public partial class App : Microsoft.UI.Xaml.Application
         services.AddSingleton<IUiDispatcher, WinUiDispatcher>();
         services.AddSingleton<INotificationService, WinUiNotificationService>();
         services.AddSingleton<IClipboardService, WinUiClipboardService>();
+        services.AddSingleton<IConfigEditorWindowService, WinUiConfigEditorWindowService>();
         services.AddSingleton<MainViewModel>();
 
         return services.BuildServiceProvider();

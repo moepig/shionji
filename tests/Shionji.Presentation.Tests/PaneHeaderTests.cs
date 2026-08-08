@@ -34,33 +34,18 @@ public class PaneHeaderTests
     }
 
     [Test]
-    public async Task 編集中は見出しが切り替わる()
+    public async Task 編集中も詳細ペインは詳細のまま()
     {
+        // 編集は別ウィンドウなので、詳細ペインが編集フォームに置き換わらない
         var ui = new UiHarness();
         await ui.App.Configs.SaveAsync(TestData.StaticConfig(name: "api-db"));
         ui.Main.SelectedRow = ui.Main.Rows[0];
-        await Assert.That(ui.Main.DetailHeader).IsEqualTo("詳細");
 
         var detail = (ConfigDetailViewModel)ui.Main.DetailContent!;
         detail.EditCommand.Execute(null);
-        await Assert.That(ui.Main.DetailHeader).IsEqualTo("詳細 — 編集");
-
-        ui.Main.AddConfigCommand.Execute(null);
-        await Assert.That(ui.Main.DetailHeader).IsEqualTo("詳細 — 新規作成");
-    }
-
-    [Test]
-    public async Task 編集を終えると詳細の見出しに戻る()
-    {
-        var ui = new UiHarness();
-        await ui.App.Configs.SaveAsync(TestData.StaticConfig(name: "api-db"));
-        ui.Main.SelectedRow = ui.Main.Rows[0];
-        var detail = (ConfigDetailViewModel)ui.Main.DetailContent!;
-        detail.EditCommand.Execute(null);
-
-        var editor = (ConfigEditorViewModel)ui.Main.DetailContent!;
-        editor.CancelCommand.Execute(null);
 
         await Assert.That(ui.Main.DetailHeader).IsEqualTo("詳細");
+        await Assert.That(ui.Main.DetailContent).IsTypeOf<ConfigDetailViewModel>();
+        await Assert.That(ui.EditorWindow.Last.WindowTitle).IsEqualTo("設定の編集");
     }
 }
