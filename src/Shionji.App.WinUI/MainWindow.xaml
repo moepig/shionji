@@ -268,8 +268,14 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- メニューバー: アプリ全体に対する操作。一覧固有の操作は一覧ペイン側にもある -->
-        <MenuBar>
+        <!-- メニューバー: アプリ全体に対する操作。一覧固有の操作は一覧ペイン側にもある。
+             既定の高さは一覧・詳細に対して大きいので詰める -->
+        <MenuBar Height="30">
+            <MenuBar.Resources>
+                <x:Double x:Key="MenuBarHeight">30</x:Double>
+                <x:Double x:Key="MenuBarItemHeight">30</x:Double>
+                <Thickness x:Key="MenuBarItemButtonPadding">10,0</Thickness>
+            </MenuBar.Resources>
             <MenuBarItem Title="ファイル">
                 <MenuFlyoutItem Text="接続先設定を追加…" Command="{Binding AddConfigCommand}">
                     <MenuFlyoutItem.Icon>
