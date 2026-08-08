@@ -127,6 +127,25 @@ public class TunnelLaunchTests
     }
 
     [Test]
+    public async Task 確立を待っている間の出力も購読者に届く()
+    {
+        // plugin はポートが開くまでの間に出力するが、LaunchAsync はポートが開くまで返らない。
+        // 購読はその後になるため、溜めて配り直さないと起動直後のログが丸ごと失われる
+        await using var harness = await TunnelHarness.CreateAsync();
+        var plan = harness.PlanForRemoteHost();
+
+        var launched = await harness.Launcher.LaunchAsync(plan);
+        await Assert.That(launched.IsSuccess).IsTrue();
+        await using var handle = launched.Value;
+
+        List<string> lines = [];
+        handle.LogEmitted += (_, e) => lines.Add(e.Line);
+
+        await WaitUntilAsync(() => lines.Count > 0);
+        await Assert.That(lines[0]).Contains($"Port {plan.LocalPort.Value} opened");
+    }
+
+    [Test]
     public async Task ポートを開かずに終了すると起動失敗になる()
     {
         await using var harness = await TunnelHarness.CreateAsync(mode: "exit-before-open");
