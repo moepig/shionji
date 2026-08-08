@@ -76,4 +76,83 @@ public class JsonRepositoryTests
         var loaded = await repository.LoadAllAsync();
         await Assert.That(loaded.Count).IsEqualTo(0);
     }
+
+    [Test]
+    public async Task 壊れたファイルは退避され以後の保存も動く()
+    {
+        // 例外をそのまま投げると一覧が黙って空になり、保存も一切できなくなる
+        using var dir = new TempDir();
+        var path = dir.File("configs.json");
+        await File.WriteAllTextAsync(path, "{ truncated...");
+        var repository = new JsonForwardingConfigRepository(path);
+
+        var loaded = await repository.LoadAllAsync();
+        await Assert.That(loaded.Count).IsEqualTo(0);
+
+        // 破損ファイルは復旧できるよう退避されている
+        var quarantined = Directory.GetFiles(dir.Path, "configs.json.corrupt-*");
+        await Assert.That(quarantined.Length).IsEqualTo(1);
+        await Assert.That(await File.ReadAllTextAsync(quarantined[0])).IsEqualTo("{ truncated...");
+
+        // 破損後も新しい設定を保存して読み戻せる
+        var config = Config("recovered");
+        await repository.SaveAsync(config);
+        var reloaded = await repository.LoadAllAsync();
+        await Assert.That(reloaded.Single().Name.Value).IsEqualTo("recovered");
+    }
+
+    [Test]
+    public async Task 変換できないエントリだけを飛ばして残りを読む()
+    {
+        using var dir = new TempDir();
+        var path = dir.File("configs.json");
+        var repository = new JsonForwardingConfigRepository(path);
+        await repository.SaveAsync(Config("valid"));
+
+        // 手編集でポート番号が範囲外になった 1 件を混ぜる
+        var document = await File.ReadAllTextAsync(path);
+        var broken = document.Replace("\"Configs\": [", """
+            "Configs": [
+              {
+                "Id": "11111111-1111-1111-1111-111111111111",
+                "Name": "broken",
+                "Profile": "dev",
+                "Region": "ap-northeast-1",
+                "LocalPort": 99999,
+                "Destination": { "kind": "static", "Host": "h.example.com", "Port": 5432 },
+                "Gateway": { "kind": "ec2", "InstanceId": "i-0123456789abcdef0" }
+              },
+            """);
+        await File.WriteAllTextAsync(path, broken);
+
+        var loaded = await repository.LoadAllAsync();
+
+        await Assert.That(loaded.Single().Name.Value).IsEqualTo("valid");
+    }
+
+    [Test]
+    public async Task 保存の途中経過ファイルを残さない()
+    {
+        using var dir = new TempDir();
+        var path = dir.File("configs.json");
+        var repository = new JsonForwardingConfigRepository(path);
+
+        await repository.SaveAsync(Config("a"));
+
+        await Assert.That(File.Exists(path + ".tmp")).IsFalse();
+    }
+
+    [Test]
+    public async Task 同じ設定を並行して保存しても壊れない()
+    {
+        using var dir = new TempDir();
+        var path = dir.File("configs.json");
+        var repository = new JsonForwardingConfigRepository(path);
+        var configs = Enumerable.Range(0, 20).Select(i => Config($"config-{i:00}")).ToList();
+
+        await Task.WhenAll(configs.Select(c => repository.SaveAsync(c)));
+
+        var loaded = await repository.LoadAllAsync();
+        await Assert.That(loaded.Count).IsEqualTo(20);
+    }
 }

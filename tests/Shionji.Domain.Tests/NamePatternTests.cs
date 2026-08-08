@@ -41,6 +41,27 @@ public class NamePatternTests
     }
 
     [Test]
+    public async Task 疑問符は1文字を要求する()
+    {
+        await Assert.That(TestData.Pattern("db-?").IsMatch("db-")).IsFalse();
+        await Assert.That(TestData.Pattern("db-?").IsMatch("db-x")).IsTrue();
+    }
+
+    [Test]
+    public async Task 角括弧は文字クラスではなくリテラルとして扱う()
+    {
+        await Assert.That(TestData.Pattern("db-[ab]").IsMatch("db-a")).IsFalse();
+        await Assert.That(TestData.Pattern("db-[ab]").IsMatch("db-[ab]")).IsTrue();
+    }
+
+    [Test]
+    public async Task 日本語を含む名前にも一致する()
+    {
+        await Assert.That(TestData.Pattern("本番-*").IsMatch("本番-データベース")).IsTrue();
+        await Assert.That(TestData.Pattern("本番-*").IsMatch("検証-データベース")).IsFalse();
+    }
+
+    [Test]
     public async Task 等価性は文字列で判定する()
     {
         await Assert.That(TestData.Pattern("a*")).IsEqualTo(TestData.Pattern("a*"));

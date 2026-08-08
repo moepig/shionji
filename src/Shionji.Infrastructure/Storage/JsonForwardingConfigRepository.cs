@@ -1,4 +1,6 @@
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Shionji.Domain.Configuration;
 using Shionji.Domain.Ports;
 using Shionji.Domain.ValueObjects;
@@ -6,8 +8,12 @@ using Shionji.Domain.ValueObjects;
 namespace Shionji.Infrastructure.Storage;
 
 /// <summary>%APPDATA%/Shionji/configs.json への JSON 永続化。</summary>
-public sealed class JsonForwardingConfigRepository(string filePath) : IForwardingConfigRepository
+public sealed class JsonForwardingConfigRepository(
+    string filePath,
+    ILogger<JsonForwardingConfigRepository>? logger = null) : IForwardingConfigRepository
 {
+    private readonly ILogger _log = logger ?? NullLogger<JsonForwardingConfigRepository>.Instance;
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
@@ -73,14 +79,43 @@ public sealed class JsonForwardingConfigRepository(string filePath) : IForwardin
         }
     }
 
+    /// <summary>
+    /// 読み込めないファイルは退避して空から続行する。
+    /// そのまま例外を投げると一覧が黙って空になるうえ、以後の保存もすべて失敗するため。
+    /// </summary>
     private async Task<ConfigsDocument> LoadDocumentAsync(CancellationToken cancellationToken)
     {
         if (!File.Exists(filePath))
             return new ConfigsDocument();
 
-        await using var stream = File.OpenRead(filePath);
-        return await JsonSerializer.DeserializeAsync<ConfigsDocument>(stream, JsonOptions, cancellationToken)
-            ?? new ConfigsDocument();
+        try
+        {
+            await using var stream = File.OpenRead(filePath);
+            return await JsonSerializer.DeserializeAsync<ConfigsDocument>(stream, JsonOptions, cancellationToken)
+                ?? new ConfigsDocument();
+        }
+        catch (JsonException ex)
+        {
+            QuarantineCorruptFile(ex);
+            return new ConfigsDocument();
+        }
+    }
+
+    private void QuarantineCorruptFile(Exception cause)
+    {
+        var quarantinePath = $"{filePath}.corrupt-{DateTime.Now:yyyyMMddHHmmss}";
+        try
+        {
+            File.Move(filePath, quarantinePath, overwrite: true);
+            _log.LogError(
+                cause,
+                "設定ファイル {Path} を読み込めません。{Quarantine} へ退避し、空の設定で続行します。",
+                filePath, quarantinePath);
+        }
+        catch (IOException moveFailure)
+        {
+            _log.LogError(moveFailure, "破損した設定ファイル {Path} の退避に失敗しました。", filePath);
+        }
     }
 
     private async Task WriteDocumentAsync(ConfigsDocument document, CancellationToken cancellationToken)

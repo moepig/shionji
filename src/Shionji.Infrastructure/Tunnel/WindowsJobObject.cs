@@ -11,6 +11,9 @@ internal static partial class WindowsJobObject
 {
     private static readonly Lazy<nint> Job = new(CreateKillOnCloseJob);
 
+    /// <summary>プロセスを収容している Job のハンドル。作成に失敗していれば 0。テストから参照する。</summary>
+    internal static nint JobHandle => Job.Value;
+
     /// <summary>失敗しても致命的ではないためベストエフォート。</summary>
     public static void TryAssign(Process process)
     {

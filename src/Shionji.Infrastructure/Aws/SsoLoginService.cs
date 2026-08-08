@@ -12,12 +12,16 @@ namespace Shionji.Infrastructure.Aws;
 /// 取得したトークンは AWS CLI と同じ ~/.aws/sso/cache に保存されるため、
 /// アプリでログインすれば aws コマンド側もログイン済みになる (逆も同様)。
 /// </summary>
-public sealed class SsoLoginService : ISsoLoginService
+/// <param name="profilesLocation">資格情報ファイルのパス。null なら既定の探索順。</param>
+public sealed class SsoLoginService(string? profilesLocation = null) : ISsoLoginService
 {
+    private readonly CredentialProfileStoreChain _chain = profilesLocation is { Length: > 0 } path
+        ? new CredentialProfileStoreChain(path)
+        : new CredentialProfileStoreChain();
+
     public async Task<ErrorDetail?> LoginAsync(ProfileName profile, CancellationToken cancellationToken = default)
     {
-        var chain = new CredentialProfileStoreChain();
-        if (!chain.TryGetAWSCredentials(profile.Value, out var credentials))
+        if (!_chain.TryGetAWSCredentials(profile.Value, out var credentials))
         {
             return new ErrorDetail(
                 FailurePhase.Credentials,

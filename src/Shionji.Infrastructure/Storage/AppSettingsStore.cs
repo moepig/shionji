@@ -25,15 +25,19 @@ public sealed class AppSettingsStore(string filePath)
 
     public AppSettings Current { get; private set; } = new();
 
+    /// <summary>
+    /// 読めない場合は既定値で続行する。設定ファイルの不備でアプリが起動できなくなる方が害が大きい。
+    /// </summary>
     public AppSettings Load()
     {
         if (File.Exists(filePath))
         {
             try
             {
-                Current = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(filePath), JsonOptions) ?? new AppSettings();
+                Current = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(filePath), JsonOptions)
+                    ?? new AppSettings();
             }
-            catch (JsonException)
+            catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
             {
                 Current = new AppSettings();
             }
