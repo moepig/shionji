@@ -33,7 +33,10 @@ AWS Session Manager 専用のポートフォワード管理 GUI (Windows / WinUI
 dotnet test
 ```
 
-`tests/Shionji.IntegrationTests` は AWS なしでトンネル起動経路を通しで検証する。偽の `session-manager-plugin` ([tests/Shionji.FakePlugin](tests/Shionji.FakePlugin)) を実プロセスとして起動し、Kestrel の SSM スタブと組み合わせて、引数の順序・実ポートの開通・データの往復・停止時の `TerminateSession`・異常系 (ポートを開かず終了、確立後の切断) を確認する。Docker も AWS アカウントも不要。
+`tests/Shionji.IntegrationTests` は **AWS アカウントも Docker もなし**で、実 SDK・実プロセス・実 TCP を通した結合検証を行う。
+
+- **トンネル**: 偽の `session-manager-plugin` ([tests/Shionji.FakePlugin](tests/Shionji.FakePlugin)) を実プロセスとして起動し、引数の順序、実ポートの開通、データの往復、停止時の `TerminateSession`、異常系 (ポートを開かず終了 / 確立後の切断 / plugin 未検出) を確認する
+- **リソース解決**: ローカルの HTTP スタブが AWS の JSON / Query 両プロトコルで応答し、実 SDK のシリアライズとアンマーシャルを通したまま、名前 glob の客側フィルタ、タグ条件の送出、ページング、エラー分類を確認する
 
 ```bash
 dotnet build src/Shionji.App.WinUI/Shionji.App.WinUI.csproj
