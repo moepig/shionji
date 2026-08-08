@@ -41,6 +41,10 @@ public sealed partial class MainWindow : Window
         AppWindow.Resize(new Windows.Graphics.SizeInt32(1080, 720));
         AppWindow.Closing += OnClosing;
 
+        // 保存済みのカラーテーマを反映し、以降このウィンドウにも追従させる
+        var themeHost = services.GetRequiredService<ThemeHost>();
+        themeHost.Register(this);
+
         SetupTrayIcon();
 
         var startup = services.GetRequiredService<StartupService>();

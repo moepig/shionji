@@ -75,6 +75,6 @@ public class StatusBarTests
 
         ui.Main.OpenLogLocationCommand.Execute(null);
 
-        await Assert.That(ui.LogLocation.OpenCount).IsEqualTo(1);
+        await Assert.That(ui.FileLocation.OpenCount).IsEqualTo(1);
     }
 }

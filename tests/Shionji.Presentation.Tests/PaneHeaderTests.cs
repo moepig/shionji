@@ -9,17 +9,17 @@ namespace Shionji.Presentation.Tests;
 public class PaneHeaderTests
 {
     [Test]
-    public async Task 設定の見出しに表示件数が出る()
+    public async Task 接続先設定の見出しに表示件数が出る()
     {
         var ui = new UiHarness();
-        await Assert.That(ui.Main.ConfigsHeader).IsEqualTo("設定 (0)");
+        await Assert.That(ui.Main.ConfigsHeader).IsEqualTo("接続先設定 (0)");
 
         await ui.App.Configs.SaveAsync(TestData.StaticConfig(name: "a", localPort: 15001));
         await ui.App.Configs.SaveAsync(TestData.StaticConfig(name: "b", localPort: 15002));
-        await Assert.That(ui.Main.ConfigsHeader).IsEqualTo("設定 (2)");
+        await Assert.That(ui.Main.ConfigsHeader).IsEqualTo("接続先設定 (2)");
 
         await ui.App.Configs.DeleteAsync(ui.Main.Rows[0].ConfigId);
-        await Assert.That(ui.Main.ConfigsHeader).IsEqualTo("設定 (1)");
+        await Assert.That(ui.Main.ConfigsHeader).IsEqualTo("接続先設定 (1)");
     }
 
     [Test]
@@ -45,6 +45,6 @@ public class PaneHeaderTests
 
         await Assert.That(ui.Main.DetailHeader).IsEqualTo("詳細");
         await Assert.That(ui.Main.DetailContent).IsTypeOf<ConfigDetailViewModel>();
-        await Assert.That(ui.EditorWindow.Last.WindowTitle).IsEqualTo("設定の編集");
+        await Assert.That(ui.EditorWindow.Last.WindowTitle).IsEqualTo("接続先設定の編集");
     }
 }

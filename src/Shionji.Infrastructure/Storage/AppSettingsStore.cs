@@ -16,6 +16,9 @@ public sealed class AppSettings
 
     /// <summary>ログファイルの保持日数。監査要件に応じて延ばす。</summary>
     public int LogRetentionDays { get; set; } = 30;
+
+    /// <summary>カラーテーマ。System / Light / Dark。</summary>
+    public string Theme { get; set; } = "System";
 }
 
 /// <summary>%APPDATA%/Shionji/appsettings.json の読み書き。</summary>
@@ -23,8 +26,7 @@ public sealed class AppSettingsStore(string filePath)
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
-    public static string DefaultPath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Shionji", "appsettings.json");
+    public static string DefaultPath => Path.Combine(StorageLocations.DefaultDirectory, "appsettings.json");
 
     public AppSettings Current { get; private set; } = new();
 

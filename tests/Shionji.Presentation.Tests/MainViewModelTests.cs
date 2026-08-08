@@ -115,7 +115,7 @@ public class MainViewModelTests
         // 詳細ペインは占有せず、別ウィンドウとして開く
         await Assert.That(ui.EditorWindow.Opened.Count).IsEqualTo(1);
         await Assert.That(ui.EditorWindow.Last.IsNew).IsTrue();
-        await Assert.That(ui.EditorWindow.Last.WindowTitle).IsEqualTo("設定の追加");
+        await Assert.That(ui.EditorWindow.Last.WindowTitle).IsEqualTo("接続先設定の追加");
         await Assert.That(ui.Main.DetailContent).IsNull();
     }
 

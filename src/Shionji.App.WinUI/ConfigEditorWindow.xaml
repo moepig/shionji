@@ -4,5 +4,8 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:Shionji.App.WinUI">
 
-    <local:ConfigEditorView x:Name="EditorView" Margin="16" />
+    <!-- Window 自体の背景はテーマ指定に追従しないため、根に明示する -->
+    <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+        <local:ConfigEditorView x:Name="EditorView" Margin="16" />
+    </Grid>
 </Window>

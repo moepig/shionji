@@ -21,9 +21,10 @@ public sealed partial class MainViewModel : ObservableObject
     private readonly IClipboardService _clipboard;
     private readonly ISsoLoginService _ssoLogin;
     private readonly SessionLogStore _sessionLog;
-    private readonly ILogLocationService _logLocation;
+    private readonly IFileLocationService _fileLocation;
     private readonly IConfigEditorWindowService _editorWindow;
     private readonly IResourceCatalog _catalog;
+    private readonly AppSettingsContext _appSettings;
 
     private readonly Dictionary<ConfigId, ConfigRowViewModel> _rowsById = [];
     private readonly HashSet<ConfigId> _established = [];
@@ -39,7 +40,7 @@ public sealed partial class MainViewModel : ObservableObject
 
     /// <summary>左ペインの見出し (表示中の件数つき)。</summary>
     [ObservableProperty]
-    public partial string ConfigsHeader { get; set; } = "設定";
+    public partial string ConfigsHeader { get; set; } = "接続先設定";
 
     /// <summary>右ペインの見出し。</summary>
     [ObservableProperty]
@@ -60,10 +61,15 @@ public sealed partial class MainViewModel : ObservableObject
     /// <summary>履歴一覧 (新しい順)。ステータスバーから開く。</summary>
     public ObservableCollection<ActivityItemViewModel> Activities { get; } = [];
 
-    public string LogDirectory => _logLocation.LogDirectory;
+    public string LogDirectory => _fileLocation.LogDirectory;
 
     [RelayCommand]
-    private void OpenLogLocation() => _logLocation.OpenLogLocation();
+    private void OpenLogLocation() => _fileLocation.OpenLogLocation();
+
+    /// <summary>ツールバーから開くアプリ設定。接続先設定とは別物。</summary>
+    [RelayCommand]
+    private void ShowSettings() => _appSettings.Window.ShowSettings(
+        new AppSettingsViewModel(_appSettings.Settings, _appSettings.FolderPicker, _fileLocation));
 
     public MainViewModel(
         ConfigService configService,
@@ -75,9 +81,10 @@ public sealed partial class MainViewModel : ObservableObject
         ISsoLoginService ssoLogin,
         SessionLogStore sessionLog,
         ActivityLog activityLog,
-        ILogLocationService logLocation,
+        IFileLocationService fileLocation,
         IConfigEditorWindowService editorWindow,
-        IResourceCatalog catalog)
+        IResourceCatalog catalog,
+        AppSettingsContext appSettings)
     {
         _configService = configService;
         _supervisor = supervisor;
@@ -87,9 +94,10 @@ public sealed partial class MainViewModel : ObservableObject
         _clipboard = clipboard;
         _ssoLogin = ssoLogin;
         _sessionLog = sessionLog;
-        _logLocation = logLocation;
+        _fileLocation = fileLocation;
         _editorWindow = editorWindow;
         _catalog = catalog;
+        _appSettings = appSettings;
 
         foreach (var entry in activityLog.Recent)
             AppendActivity(entry);
@@ -120,7 +128,7 @@ public sealed partial class MainViewModel : ObservableObject
         RefreshDetail(detail);
     }
 
-    /// <summary>設定の追加は独立したウィンドウで行う (一覧を見ながら入力できる)。</summary>
+    /// <summary>接続先設定の追加は独立したウィンドウで行う (一覧を見ながら入力できる)。</summary>
     [RelayCommand]
     private void AddConfig() => _editorWindow.ShowEditor(ConfigEditorViewModel.ForNew(this));
 
@@ -267,7 +275,7 @@ public sealed partial class MainViewModel : ObservableObject
                 Rows.Move(currentIndex, i);
         }
 
-        ConfigsHeader = $"設定 ({Rows.Count})";
+        ConfigsHeader = $"接続先設定 ({Rows.Count})";
     }
 
     private void OnSessionChanged(SessionChangedEventArgs e)
