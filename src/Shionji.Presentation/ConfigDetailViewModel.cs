@@ -22,7 +22,10 @@ public sealed partial class ConfigDetailViewModel(
     public partial string Name { get; set; } = string.Empty;
 
     [ObservableProperty]
-    public partial string Overview { get; set; } = string.Empty;
+    public partial string ProfileText { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string RegionText { get; set; } = string.Empty;
 
     [ObservableProperty]
     public partial string DestinationText { get; set; } = string.Empty;
@@ -30,15 +33,27 @@ public sealed partial class ConfigDetailViewModel(
     [ObservableProperty]
     public partial string GatewayText { get; set; } = string.Empty;
 
+    /// <summary>待ち受けるローカル側。未接続で自動割当なら「自動割当」。</summary>
+    [ObservableProperty]
+    public partial string LocalPortText { get; set; } = string.Empty;
+
     [ObservableProperty]
     public partial string SessionText { get; set; } = string.Empty;
 
     [ObservableProperty]
     public partial string? ErrorText { get; set; }
 
-    /// <summary>「localhost:13306」。確立時のみ。</summary>
+    /// <summary>「localhost:13306」。確立時のみ (コピー対象)。</summary>
     [ObservableProperty]
     public partial string? LocalEndpoint { get; set; }
+
+    /// <summary>候補一覧を出すか (複数一致のときのみ)。</summary>
+    [ObservableProperty]
+    public partial bool HasCandidates { get; set; }
+
+    /// <summary>セッションログを出すか。</summary>
+    [ObservableProperty]
+    public partial bool HasLog { get; set; }
 
     [ObservableProperty]
     public partial bool IsConnected { get; set; }
@@ -105,6 +120,7 @@ public sealed partial class ConfigDetailViewModel(
     internal void LoadLog(IReadOnlyList<SessionLogLine> lines)
     {
         LogLines.Clear();
+        HasLog = false;
         foreach (var line in lines)
             AddLine(line);
     }
@@ -114,6 +130,7 @@ public sealed partial class ConfigDetailViewModel(
         LogLines.Add(line.IsError ? $"[stderr] {line.Line}" : line.Line);
         while (LogLines.Count > MaxLogLines)
             LogLines.RemoveAt(0);
+        HasLog = LogLines.Count > 0;
     }
 
     internal void Refresh(
@@ -123,9 +140,11 @@ public sealed partial class ConfigDetailViewModel(
         Domain.ValueObjects.Port? localPort)
     {
         Name = config.Name.Value;
-        Overview = $"プロファイル {config.Aws.Profile.Value} / {config.Aws.Region.Value}";
+        ProfileText = config.Aws.Profile.Value;
+        RegionText = config.Aws.Region.Value;
         GatewayText = GatewaySummary(config.Gateway);
-        DestinationText = ConfigRowViewModel.BuildSummary(config, view, localPort);
+        DestinationText = ConfigRowViewModel.DestinationSummary(config, view);
+        LocalPortText = LocalSummary(config, localPort);
         Status = ConfigRowViewModel.StatusOf(state);
         IsConnected = state is SessionState.Resolving
             or SessionState.Starting
@@ -141,6 +160,18 @@ public sealed partial class ConfigDetailViewModel(
         Candidates.Clear();
         foreach (var candidate in CollectCandidates(view))
             Candidates.Add(candidate);
+        HasCandidates = Candidates.Count > 0;
+    }
+
+    /// <summary>ローカル側の表示。自動割当は接続するまで番号が決まらない。</summary>
+    private static string LocalSummary(ForwardingConfig config, Domain.ValueObjects.Port? actual)
+    {
+        if (actual is { } port)
+            return $"localhost:{port.Value}";
+
+        return config.LocalPort is LocalPortSpec.Fixed fixedPort
+            ? $"localhost:{fixedPort.Port.Value}"
+            : "自動割当 (接続時に決定)";
     }
 
     public static string GatewaySummary(GatewaySpec gateway) => gateway switch

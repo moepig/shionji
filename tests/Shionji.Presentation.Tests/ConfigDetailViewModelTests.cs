@@ -6,6 +6,59 @@ namespace Shionji.Presentation.Tests;
 public class ConfigDetailViewModelTests
 {
     [Test]
+    public async Task 各項目が個別に取り出せる()
+    {
+        // 画面ではそれぞれにラベルを付けて並べるため、値が混ざっていないこと
+        var ui = new UiHarness();
+        await ui.App.Configs.SaveAsync(TestData.StaticConfig(name: "api-db", localPort: 13306));
+        ui.Main.SelectedRow = ui.Main.Rows[0];
+
+        var detail = (ConfigDetailViewModel)ui.Main.DetailContent!;
+        await Assert.That(detail.ProfileText).IsEqualTo("dev");
+        await Assert.That(detail.RegionText).IsEqualTo("ap-northeast-1");
+        await Assert.That(detail.GatewayText).IsEqualTo("EC2 踏み台 i-0123456789abcdef0");
+        await Assert.That(detail.DestinationText).IsEqualTo("db.example.internal:5432");
+        await Assert.That(detail.LocalPortText).IsEqualTo("localhost:13306");
+        await Assert.That(detail.SessionText).IsEqualTo("未接続");
+    }
+
+    [Test]
+    public async Task 自動割当は接続前後で表示が変わる()
+    {
+        var ui = new UiHarness();
+        await ui.App.Configs.SaveAsync(TestData.QueryConfig());
+        var row = ui.Main.Rows[0];
+        ui.Main.SelectedRow = row;
+        var detail = (ConfigDetailViewModel)ui.Main.DetailContent!;
+
+        await Assert.That(detail.LocalPortText).IsEqualTo("自動割当 (接続時に決定)");
+        await Assert.That(detail.LocalEndpoint).IsNull();
+
+        await row.ToggleConnectionCommand.ExecuteAsync(null);
+
+        await Assert.That(detail.LocalPortText).IsEqualTo("localhost:50000");
+        await Assert.That(detail.LocalEndpoint).IsEqualTo("localhost:50000");
+    }
+
+    [Test]
+    public async Task 候補とログの節は中身があるときだけ出す()
+    {
+        var ui = new UiHarness();
+        await ui.App.Configs.SaveAsync(TestData.StaticConfig(name: "api-db"));
+        var row = ui.Main.Rows[0];
+        ui.Main.SelectedRow = row;
+        var detail = (ConfigDetailViewModel)ui.Main.DetailContent!;
+
+        await Assert.That(detail.HasCandidates).IsFalse();
+        await Assert.That(detail.HasLog).IsFalse();
+
+        await row.ToggleConnectionCommand.ExecuteAsync(null);
+        ui.App.Launcher.LastHandle.EmitLog("Port opened.");
+
+        await Assert.That(detail.HasLog).IsTrue();
+    }
+
+    [Test]
     public async Task 確立中はローカルエンドポイントをコピーできる()
     {
         var ui = new UiHarness();
