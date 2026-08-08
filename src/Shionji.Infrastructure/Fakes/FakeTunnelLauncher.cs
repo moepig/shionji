@@ -3,6 +3,7 @@ using Shionji.Domain.Primitives;
 using Shionji.Domain.Resolution;
 using Shionji.Domain.Tunneling;
 using Shionji.Domain.ValueObjects;
+using Shionji.Infrastructure.Tunnel;
 
 namespace Shionji.Infrastructure.Fakes;
 
@@ -38,16 +39,29 @@ public sealed class FakeTunnelLauncher(FakeSsoState? ssoState = null) : ITunnelL
     {
         private readonly CancellationTokenSource _cts = new();
 
+        // 本物と同じく、購読される前に出た行を取りこぼさない
+        private readonly ReplayingEvent<TunnelExitedEventArgs> _exited = new(maxPending: 1);
+        private readonly ReplayingEvent<TunnelLogEventArgs> _log = new();
+
         public Port LocalPort { get; } = localPort;
 
         public string SessionId { get; } = $"s-demo{Random.Shared.Next(100000, 999999)}";
 
-        public event EventHandler<TunnelExitedEventArgs>? Exited;
-        public event EventHandler<TunnelLogEventArgs>? LogEmitted;
+        public event EventHandler<TunnelExitedEventArgs>? Exited
+        {
+            add => _exited.Add(this, value);
+            remove => _exited.Remove(value);
+        }
+
+        public event EventHandler<TunnelLogEventArgs>? LogEmitted
+        {
+            add => _log.Add(this, value);
+            remove => _log.Remove(value);
+        }
 
         public void Begin()
         {
-            LogEmitted?.Invoke(this, new TunnelLogEventArgs(
+            _log.Raise(this, new TunnelLogEventArgs(
                 $"Port {LocalPort.Value} opened for sessionId demo-session (fake).", false));
 
             if (flaky)
@@ -65,8 +79,8 @@ public sealed class FakeTunnelLauncher(FakeSsoState? ssoState = null) : ITunnelL
                 return;
             }
 
-            LogEmitted?.Invoke(this, new TunnelLogEventArgs("Connection reset by peer (fake).", true));
-            Exited?.Invoke(this, new TunnelExitedEventArgs(new ErrorDetail(
+            _log.Raise(this, new TunnelLogEventArgs("Connection reset by peer (fake).", true));
+            _exited.Raise(this, new TunnelExitedEventArgs(new ErrorDetail(
                 FailurePhase.Plugin, "PluginExited", "トンネルが予期せず切断されました (デモ)。")));
         }
 

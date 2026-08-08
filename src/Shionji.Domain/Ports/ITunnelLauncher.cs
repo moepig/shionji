@@ -16,7 +16,11 @@ public sealed class TunnelLogEventArgs(string line, bool isError) : EventArgs
     public bool IsError { get; } = isError;
 }
 
-/// <summary>起動済みトンネルへのハンドル。</summary>
+/// <summary>
+/// 起動済みトンネルへのハンドル。
+/// トンネルはハンドルが呼び出し元へ渡る前から動いているため、Exited と LogEmitted は
+/// 購読前に起きた分も最初の購読時に配り直す (起動直後の出力を取りこぼさない)。
+/// </summary>
 public interface ITunnelHandle : IAsyncDisposable
 {
     /// <summary>実際に待ち受けているローカルポート。</summary>

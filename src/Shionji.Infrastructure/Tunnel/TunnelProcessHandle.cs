@@ -15,18 +15,31 @@ internal sealed class TunnelProcessHandle(
     private int _stopped;
     private volatile string? _lastErrorLine;
 
+    // ポートが開くまで LaunchAsync は返らない。その間の plugin 出力は購読前に流れるので溜めておく
+    private readonly ReplayingEvent<TunnelExitedEventArgs> _exited = new(maxPending: 1);
+    private readonly ReplayingEvent<TunnelLogEventArgs> _log = new();
+
     public Port LocalPort { get; } = localPort;
 
     public string SessionId { get; } = sessionId;
 
-    public event EventHandler<TunnelExitedEventArgs>? Exited;
-    public event EventHandler<TunnelLogEventArgs>? LogEmitted;
+    public event EventHandler<TunnelExitedEventArgs>? Exited
+    {
+        add => _exited.Add(this, value);
+        remove => _exited.Remove(value);
+    }
+
+    public event EventHandler<TunnelLogEventArgs>? LogEmitted
+    {
+        add => _log.Add(this, value);
+        remove => _log.Remove(value);
+    }
 
     internal void HandleOutput(string line, bool isError)
     {
         if (isError)
             _lastErrorLine = line;
-        LogEmitted?.Invoke(this, new TunnelLogEventArgs(line, isError));
+        _log.Raise(this, new TunnelLogEventArgs(line, isError));
     }
 
     /// <summary>プロセス終了時に呼ばれる。停止要求によるものでなければ予期せぬ終了として通知する。</summary>
@@ -45,7 +58,7 @@ internal sealed class TunnelProcessHandle(
         }
 
         var detail = _lastErrorLine is { Length: > 0 } lastError ? $" {lastError}" : string.Empty;
-        Exited?.Invoke(this, new TunnelExitedEventArgs(new ErrorDetail(
+        _exited.Raise(this, new TunnelExitedEventArgs(new ErrorDetail(
             FailurePhase.Plugin,
             "PluginExited",
             $"session-manager-plugin が予期せず終了しました (終了コード {exitCode?.ToString() ?? "不明"})。{detail}")));

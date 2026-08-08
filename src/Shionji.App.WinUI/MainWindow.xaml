@@ -307,27 +307,31 @@
                         <TextBlock Text="{Binding DetailHeader}" Style="{StaticResource PaneTitleStyle}" />
                     </Border>
 
-                    <Grid Grid.Row="1" Padding="12">
-                        <!-- Content が null でもテンプレートは適用されるため、明示的に隠す
-                             (でないと値が空のままの詳細フォームが出てしまう) -->
-                        <ContentControl Content="{Binding DetailContent}"
-                                        ContentTemplate="{StaticResource DetailTemplate}"
-                                        HorizontalContentAlignment="Stretch"
-                                        VerticalContentAlignment="Stretch"
-                                        Visibility="{Binding DetailContent, Converter={StaticResource NullToVis}}" />
+                    <!-- 見出しと中身を色で分ける。角丸はカードの内側に収める -->
+                    <Border Grid.Row="1" Padding="12" CornerRadius="0,0,5,5"
+                            Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}">
+                        <Grid>
+                            <!-- Content が null でもテンプレートは適用されるため、明示的に隠す
+                                 (でないと値が空のままの詳細フォームが出てしまう) -->
+                            <ContentControl Content="{Binding DetailContent}"
+                                            ContentTemplate="{StaticResource DetailTemplate}"
+                                            HorizontalContentAlignment="Stretch"
+                                            VerticalContentAlignment="Stretch"
+                                            Visibility="{Binding DetailContent, Converter={StaticResource NullToVis}}" />
 
-                        <!-- 何も選択していないときに空白の理由を示す -->
-                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6"
-                                    Visibility="{Binding DetailContent, Converter={StaticResource NullToVis}, ConverterParameter=Invert}">
-                            <TextBlock Text="設定を選択してください" HorizontalAlignment="Center"
-                                       Style="{StaticResource BodyTextBlockStyle}"
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                            <TextBlock Text="左の一覧から選ぶと、検索結果・接続状態・ログをここに表示します"
-                                       HorizontalAlignment="Center" TextAlignment="Center" MaxWidth="320"
-                                       Style="{StaticResource CaptionTextBlockStyle}"
-                                       Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
-                        </StackPanel>
-                    </Grid>
+                            <!-- 何も選択していないときに空白の理由を示す -->
+                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6"
+                                        Visibility="{Binding DetailContent, Converter={StaticResource NullToVis}, ConverterParameter=Invert}">
+                                <TextBlock Text="設定を選択してください" HorizontalAlignment="Center"
+                                           Style="{StaticResource BodyTextBlockStyle}"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <TextBlock Text="左の一覧から選ぶと、検索結果・接続状態・ログをここに表示します"
+                                           HorizontalAlignment="Center" TextAlignment="Center" MaxWidth="320"
+                                           Style="{StaticResource CaptionTextBlockStyle}"
+                                           Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
                 </Grid>
             </Border>
         </Grid>
