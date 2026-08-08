@@ -174,28 +174,48 @@ public sealed partial class MainViewModel : ObservableObject
         });
     }
 
+    /// <summary>
+    /// 行コレクションを差分更新する。Clear → 全再追加は ListView の選択と
+    /// スクロール位置を壊すため、挿入 / 移動 / 削除の最小操作で並びを合わせる。
+    /// </summary>
     private void RebuildRows()
     {
-        var configs = _configService.Configs
+        var snapshot = _configService.Configs;
+        var desired = snapshot
             .Where(c => FilterText.Length == 0 ||
                         c.Name.Value.Contains(FilterText, StringComparison.OrdinalIgnoreCase))
             .OrderBy(c => c.Name.Value, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        foreach (var stale in _rowsById.Keys.Where(id => !_configService.Configs.Any(c => c.Id == id)).ToList())
+        var aliveIds = snapshot.Select(c => c.Id).ToHashSet();
+        foreach (var stale in _rowsById.Keys.Where(id => !aliveIds.Contains(id)).ToList())
             _rowsById.Remove(stale);
 
-        Rows.Clear();
-        foreach (var config in configs)
+        var desiredIds = desired.Select(c => c.Id).ToHashSet();
+        for (var i = Rows.Count - 1; i >= 0; i--)
         {
+            if (!desiredIds.Contains(Rows[i].ConfigId))
+                Rows.RemoveAt(i);
+        }
+
+        for (var i = 0; i < desired.Count; i++)
+        {
+            var config = desired[i];
             if (!_rowsById.TryGetValue(config.Id, out var row))
             {
                 row = new ConfigRowViewModel(this, config.Id);
                 _rowsById[config.Id] = row;
             }
 
-            UpdateRow(row);
-            Rows.Add(row);
+            UpdateRow(row, config);
+
+            var currentIndex = Rows.IndexOf(row);
+            if (currentIndex == i)
+                continue;
+            if (currentIndex < 0)
+                Rows.Insert(i, row);
+            else
+                Rows.Move(currentIndex, i);
         }
     }
 
@@ -241,9 +261,12 @@ public sealed partial class MainViewModel : ObservableObject
 
     private void UpdateRow(ConfigRowViewModel row)
     {
-        if (_configService.Find(row.ConfigId) is not { } config)
-            return;
+        if (_configService.Find(row.ConfigId) is { } config)
+            UpdateRow(row, config);
+    }
 
+    private void UpdateRow(ConfigRowViewModel row, Domain.Configuration.ForwardingConfig config)
+    {
         row.Update(
             config,
             _supervisor.GetState(row.ConfigId),
