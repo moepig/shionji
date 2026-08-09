@@ -7,7 +7,11 @@ namespace Shionji.Infrastructure.Tunnel;
 /// session-manager-plugin.exe の探索。
 /// アプリ設定の上書きパス → 既定インストールパス → PATH の順で探す。
 /// </summary>
-public sealed class SessionManagerPluginLocator(Func<string?>? configuredPathProvider = null)
+/// <param name="configuredPathProvider">アプリ設定の上書きパス。null と空文字は未指定として扱う</param>
+/// <param name="programFilesProvider">既定インストールパスの基点。省略時は実行環境の Program Files</param>
+public sealed class SessionManagerPluginLocator(
+    Func<string?>? configuredPathProvider = null,
+    Func<string>? programFilesProvider = null)
 {
     public const string InstallGuideUrl =
         "https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html";
@@ -34,7 +38,9 @@ public sealed class SessionManagerPluginLocator(Func<string?>? configuredPathPro
         if (configuredPathProvider?.Invoke() is { Length: > 0 } configured)
             yield return configured;
 
-        var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+        var programFiles = programFilesProvider is null
+            ? Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles)
+            : programFilesProvider();
         if (programFiles.Length > 0)
             yield return Path.Combine(programFiles, "Amazon", "SessionManagerPlugin", "bin", ExeName);
 
