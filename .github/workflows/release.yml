@@ -1,0 +1,89 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: windows-2025
+
+    steps:
+      - name: リポジトリを取得する
+        uses: actions/checkout@v4
+
+      - name: .NET SDK を用意する
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: NuGet パッケージをキャッシュする
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', 'Directory.Build.props') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      # 実行ファイルのバージョン情報は csproj の Version から作られる。タグと食い違うと、
+      # 利用者から受け取ったログの版がリリースの版と一致しなくなるため、ここで弾く。
+      - name: タグと csproj のバージョンが一致することを確認する
+        id: version
+        shell: pwsh
+        run: |
+          $csproj = 'src/Shionji.App.WinUI/Shionji.App.WinUI.csproj'
+          $expected = '${{ github.ref_name }}' -replace '^v', ''
+          $actual = ([xml](Get-Content $csproj)).Project.PropertyGroup.Version |
+            Where-Object { $_ } |
+            Select-Object -First 1
+          if (-not $actual) {
+            throw "$csproj に Version がない。<Version>$expected</Version> を追加してタグを打ち直す。"
+          }
+          if ($actual.Trim() -ne $expected) {
+            throw "$csproj の Version ($($actual.Trim())) がタグ (${{ github.ref_name }}) と一致しない。"
+          }
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "version=$expected"
+
+      - name: テストを実行する
+        run: dotnet test Shionji.slnx --configuration Release
+
+      - name: 配布物を publish する
+        run: dotnet publish src/Shionji.App.WinUI/Shionji.App.WinUI.csproj -c Release -r win-x64 -o publish
+
+      - name: 配布物を圧縮する
+        id: package
+        shell: pwsh
+        run: |
+          $name = "shionji-${{ steps.version.outputs.version }}-win-x64.zip"
+          Compress-Archive -Path publish/* -DestinationPath $name
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "path=$name"
+
+      # リリース作成が失敗しても配布物を取り出せるようにする。
+      - name: 配布物をアーティファクトとして残す
+        uses: actions/upload-artifact@v4
+        with:
+          name: shionji-${{ steps.version.outputs.version }}-win-x64
+          path: ${{ steps.package.outputs.path }}
+          retention-days: 14
+
+      # プレリリース版 (1.2.0-rc.1 のようにハイフンを含む版) は latest として扱わない。
+      - name: リリースを作成する
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = '${{ github.ref_name }}'
+          $ghArgs = @(
+            'release', 'create', $tag, '${{ steps.package.outputs.path }}',
+            '--title', $tag,
+            '--generate-notes'
+          )
+          if ('${{ steps.version.outputs.version }}' -like '*-*') { $ghArgs += '--prerelease' }
+          gh @ghArgs
