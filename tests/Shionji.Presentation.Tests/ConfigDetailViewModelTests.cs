@@ -75,6 +75,22 @@ public class ConfigDetailViewModelTests
     }
 
     [Test]
+    public async Task 確立時刻は現地時刻で表示される()
+    {
+        // 履歴一覧が現地時刻なので、詳細も揃っていないと同じ出来事が別の時刻に見える
+        var ui = new UiHarness();
+        ui.App.Clock.UtcNow = new DateTimeOffset(2026, 8, 8, 2, 13, 56, TimeSpan.Zero);
+        await ui.App.Configs.SaveAsync(TestData.StaticConfig(name: "api-db"));
+        var row = ui.Main.Rows[0];
+        ui.Main.SelectedRow = row;
+        await row.ToggleConnectionCommand.ExecuteAsync(null);
+
+        var detail = (ConfigDetailViewModel)ui.Main.DetailContent!;
+        var expected = ui.App.Clock.UtcNow.ToLocalTime().ToString("HH:mm:ss");
+        await Assert.That(detail.SessionText).IsEqualTo($"確立 ({expected} から)");
+    }
+
+    [Test]
     public async Task 接続と切断は状態に応じて片方だけ押せる()
     {
         var ui = new UiHarness();

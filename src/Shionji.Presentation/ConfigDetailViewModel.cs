@@ -242,7 +242,9 @@ public sealed partial class ConfigDetailViewModel(
         SessionState.Idle => "未接続",
         SessionState.Resolving => "リソース自動検索中…",
         SessionState.Starting => "セッション起動中…",
-        SessionState.Established established => $"確立 ({established.Since:HH:mm:ss} から)",
+        // Since は IClock 由来の UTC。ステータスバーと同じ現地時刻で並べる
+        SessionState.Established established =>
+            $"確立 ({established.Since.ToLocalTime():HH:mm:ss} から)",
         SessionState.Closing => "切断中…",
         SessionState.Reconnecting reconnecting =>
             $"再接続待ち ({reconnecting.Attempt} 回目、{reconnecting.Delay.TotalSeconds:0} 秒後)",
