@@ -176,17 +176,29 @@ public class TunnelLaunchTests
     public async Task pluginが見つからなければインストール案内のエラーになる()
     {
         await using var harness = await TunnelHarness.CreateAsync();
+        // 実行環境に導入済みの plugin を拾わないよう、既定インストールパスは存在しない場所へ向ける
         var locator = new Infrastructure.Tunnel.SessionManagerPluginLocator(
-            () => Path.Combine(Path.GetTempPath(), "shionji-missing-plugin.exe"));
+            () => Path.Combine(Path.GetTempPath(), "shionji-missing-plugin.exe"),
+            () => Path.Combine(Path.GetTempPath(), "shionji-absent-program-files"));
         var launcher = new Infrastructure.Tunnel.SessionManagerPluginLauncher(
             new Infrastructure.Aws.AwsClientFactory(harness.Aws.Url), locator, harness.PortProbe);
 
-        var launched = await launcher.LaunchAsync(harness.PlanForRemoteHost());
+        // 同じ理由で PATH も空にする。この時点では plugin を起動しないため副作用は無い
+        var originalPath = Environment.GetEnvironmentVariable("PATH");
+        Environment.SetEnvironmentVariable("PATH", null);
+        try
+        {
+            var launched = await launcher.LaunchAsync(harness.PlanForRemoteHost());
 
-        await Assert.That(launched.IsFailure).IsTrue();
-        await Assert.That(launched.Error.Code).IsEqualTo("PluginNotFound");
-        // plugin を探す前に AWS を呼ばない
-        await Assert.That(harness.Aws.Received("StartSession")).IsFalse();
+            await Assert.That(launched.IsFailure).IsTrue();
+            await Assert.That(launched.Error.Code).IsEqualTo("PluginNotFound");
+            // plugin を探す前に AWS を呼ばない
+            await Assert.That(harness.Aws.Received("StartSession")).IsFalse();
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("PATH", originalPath);
+        }
     }
 
     private static async Task WaitUntilAsync(Func<bool> condition, int timeoutMs = 3000)

@@ -9,6 +9,13 @@ public class PluginLocatorTests
 {
     private const string ExeName = "session-manager-plugin.exe";
 
+    /// <summary>
+    /// 既定インストールパスを存在しない場所へ向けた locator を作る。
+    /// 実行環境に plugin が導入されていると、その候補が設定パスの次に一致してしまうため。
+    /// </summary>
+    private static SessionManagerPluginLocator Locator(Func<string?>? configuredPathProvider = null) =>
+        new(configuredPathProvider, () => Path.Combine(Path.GetTempPath(), "shionji-absent-program-files"));
+
     /// <summary>PATH を差し替えて locator の探索を検証する。</summary>
     private static async Task WithPathAsync(string? path, Func<Task> body)
     {
@@ -31,7 +38,7 @@ public class PluginLocatorTests
         var configured = dir.File("my-plugin.exe");
         await File.WriteAllTextAsync(configured, "");
 
-        var located = new SessionManagerPluginLocator(() => configured).Locate();
+        var located = Locator(() => configured).Locate();
 
         await Assert.That(located.IsSuccess).IsTrue();
         await Assert.That(located.Value).IsEqualTo(configured);
@@ -47,7 +54,7 @@ public class PluginLocatorTests
 
         await WithPathAsync(dir.Path, async () =>
         {
-            var located = new SessionManagerPluginLocator(() => missing).Locate();
+            var located = Locator(() => missing).Locate();
 
             await Assert.That(located.IsSuccess).IsTrue();
             await Assert.That(located.Value).IsEqualTo(onPath);
@@ -65,7 +72,7 @@ public class PluginLocatorTests
         // 先頭に無関係なディレクトリを並べても後続まで探す
         await WithPathAsync($"{empty.Path}{Path.PathSeparator}{dir.Path}", async () =>
         {
-            var located = new SessionManagerPluginLocator().Locate();
+            var located = Locator().Locate();
 
             await Assert.That(located.IsSuccess).IsTrue();
             await Assert.That(located.Value).IsEqualTo(onPath);
@@ -79,7 +86,7 @@ public class PluginLocatorTests
 
         await WithPathAsync(empty.Path, async () =>
         {
-            var located = new SessionManagerPluginLocator(() => null).Locate();
+            var located = Locator(() => null).Locate();
 
             await Assert.That(located.IsFailure).IsTrue();
             await Assert.That(located.Error.Phase).IsEqualTo(FailurePhase.Plugin);
@@ -97,7 +104,7 @@ public class PluginLocatorTests
 
         await WithPathAsync(dir.Path, async () =>
         {
-            var located = new SessionManagerPluginLocator(() => string.Empty).Locate();
+            var located = Locator(() => string.Empty).Locate();
 
             await Assert.That(located.IsSuccess).IsTrue();
             await Assert.That(located.Value).IsEqualTo(onPath);
