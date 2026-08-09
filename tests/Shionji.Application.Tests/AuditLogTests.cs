@@ -16,14 +16,14 @@ public class AuditLogTests
         await harness.Supervisor.StartAsync(TestData.StaticConfig(name: "api-db", localPort: 13306));
 
         var established = harness.WrittenWith("で接続しました");
-        await Assert.That(established.Detail("転送先")).IsEqualTo("db.example.internal:5432");
-        await Assert.That(established.Detail("経路")).IsEqualTo("EC2:i-0123456789abcdef0");
-        await Assert.That(established.Detail("SSMターゲット")).IsEqualTo("i-0123456789abcdef0");
-        await Assert.That(established.Detail("文書")).IsEqualTo("AWS-StartPortForwardingSessionToRemoteHost");
-        await Assert.That(established.Detail("プロファイル")).IsEqualTo("dev@ap-northeast-1");
-        await Assert.That(established.Detail("ローカル")).IsEqualTo("localhost:13306");
+        await Assert.That(established.Detail("destination")).IsEqualTo("db.example.internal:5432");
+        await Assert.That(established.Detail("gateway")).IsEqualTo("EC2:i-0123456789abcdef0");
+        await Assert.That(established.Detail("ssmTarget")).IsEqualTo("i-0123456789abcdef0");
+        await Assert.That(established.Detail("document")).IsEqualTo("AWS-StartPortForwardingSessionToRemoteHost");
+        await Assert.That(established.Detail("profile")).IsEqualTo("dev@ap-northeast-1");
+        await Assert.That(established.Detail("local")).IsEqualTo("localhost:13306");
         // CloudTrail / ssm:DescribeSessions と突き合わせるための鍵
-        await Assert.That(established.Detail("セッション")).IsEqualTo("s-test0123456789");
+        await Assert.That(established.Detail("session")).IsEqualTo("s-test0123456789");
     }
 
     [Test]
@@ -49,9 +49,9 @@ public class AuditLogTests
         await harness.Supervisor.StartAsync(TestData.DirectEc2Config(name: "batch", localPort: 12222));
 
         var established = harness.WrittenWith("で接続しました");
-        await Assert.That(established.Detail("経路")).IsEqualTo("直接");
-        await Assert.That(established.Detail("文書")).IsEqualTo("AWS-StartPortForwardingSession");
-        await Assert.That(established.Detail("転送先")).IsEqualTo("i-0feedfacefeedface:22");
+        await Assert.That(established.Detail("gateway")).IsEqualTo("直接");
+        await Assert.That(established.Detail("document")).IsEqualTo("AWS-StartPortForwardingSession");
+        await Assert.That(established.Detail("destination")).IsEqualTo("i-0feedfacefeedface:22");
     }
 
     [Test]
@@ -62,10 +62,10 @@ public class AuditLogTests
         await harness.Supervisor.StartAsync(TestData.QueryConfig());
 
         var resolved = harness.WrittenWith("リソースを特定しました");
-        await Assert.That(resolved.Detail("転送先")).IsEqualTo("cache-1");
-        await Assert.That(resolved.Detail("転送先ID")).IsEqualTo("cache-1");
-        await Assert.That(resolved.Detail("転送先エンドポイント")).IsEqualTo("redis.prod.example.com:6379");
-        await Assert.That(resolved.Detail("踏み台SSM")).IsEqualTo("i-0feedfacefeedface");
+        await Assert.That(resolved.Detail("destination")).IsEqualTo("cache-1");
+        await Assert.That(resolved.Detail("destinationId")).IsEqualTo("cache-1");
+        await Assert.That(resolved.Detail("destinationEndpoint")).IsEqualTo("redis.prod.example.com:6379");
+        await Assert.That(resolved.Detail("bastionSsmTarget")).IsEqualTo("i-0feedfacefeedface");
     }
 
     [Test]
@@ -76,9 +76,9 @@ public class AuditLogTests
         await harness.Resolution.RefreshAsync(TestData.QueryConfig());
 
         var resolved = harness.WrittenWith("転送先を cache-1 に特定しました");
-        await Assert.That(resolved.Detail("リソースID")).IsEqualTo("cache-1");
-        await Assert.That(resolved.Detail("エンドポイント")).IsEqualTo("redis.prod.example.com");
-        await Assert.That(resolved.Detail("プロファイル")).IsEqualTo("dev@ap-northeast-1");
+        await Assert.That(resolved.Detail("resourceId")).IsEqualTo("cache-1");
+        await Assert.That(resolved.Detail("endpoint")).IsEqualTo("redis.prod.example.com");
+        await Assert.That(resolved.Detail("profile")).IsEqualTo("dev@ap-northeast-1");
     }
 
     [Test]
@@ -89,7 +89,7 @@ public class AuditLogTests
         await harness.Supervisor.StartAsync(TestData.StaticConfig(name: "api-db"));
 
         var ids = harness.Written
-            .Select(w => w.Detail("試行"))
+            .Select(w => w.Detail("attempt"))
             .Where(id => id is { Length: > 0 })
             .Distinct()
             .ToList();
@@ -107,7 +107,7 @@ public class AuditLogTests
         await Wait.UntilAsync(() => harness.Launcher.LaunchCount == 2);
 
         var ids = harness.Written
-            .Select(w => w.Detail("試行"))
+            .Select(w => w.Detail("attempt"))
             .Where(id => id is { Length: > 0 })
             .Distinct()
             .ToList();
@@ -128,9 +128,9 @@ public class AuditLogTests
         await harness.Supervisor.StopAsync(config.Id, reason);
 
         var stop = harness.WrittenWith("切断します");
-        await Assert.That(stop.Detail("理由")).IsEqualTo(expected);
-        await Assert.That(stop.Detail("セッション")).IsEqualTo("s-test0123456789");
-        await Assert.That(stop.Detail("接続秒")).IsNotNull();
+        await Assert.That(stop.Detail("reason")).IsEqualTo(expected);
+        await Assert.That(stop.Detail("session")).IsEqualTo("s-test0123456789");
+        await Assert.That(stop.Detail("connectedSeconds")).IsNotNull();
     }
 
     [Test]
@@ -142,7 +142,7 @@ public class AuditLogTests
 
         await harness.Configs.SaveAsync(config);
 
-        await Assert.That(harness.WrittenWith("切断します").Detail("理由")).IsEqualTo("設定変更");
+        await Assert.That(harness.WrittenWith("切断します").Detail("reason")).IsEqualTo("設定変更");
     }
 
     [Test]
@@ -155,10 +155,10 @@ public class AuditLogTests
         await Wait.UntilAsync(() => harness.Written.Any(w => w.Summary.Contains("接続が切れました")));
 
         var exited = harness.WrittenWith("接続が切れました");
-        await Assert.That(exited.Detail("セッション")).IsEqualTo("s-test0123456789");
-        await Assert.That(exited.Detail("フェーズ")).IsEqualTo("Plugin");
-        await Assert.That(exited.Detail("コード")).IsEqualTo("TestError");
-        await Assert.That(exited.Detail("接続秒")).IsNotNull();
+        await Assert.That(exited.Detail("session")).IsEqualTo("s-test0123456789");
+        await Assert.That(exited.Detail("phase")).IsEqualTo("Plugin");
+        await Assert.That(exited.Detail("code")).IsEqualTo("TestError");
+        await Assert.That(exited.Detail("connectedSeconds")).IsNotNull();
     }
 
     [Test]
@@ -170,9 +170,9 @@ public class AuditLogTests
         await harness.Supervisor.StartAsync(TestData.StaticConfig(name: "api-db"));
 
         var failed = harness.WrittenWith("失敗:");
-        await Assert.That(failed.Detail("フェーズ")).IsEqualTo("StartSession");
-        await Assert.That(failed.Detail("コード")).IsEqualTo("LocalPortInUse");
-        await Assert.That(failed.Detail("プロファイル")).IsEqualTo("dev@ap-northeast-1");
+        await Assert.That(failed.Detail("phase")).IsEqualTo("StartSession");
+        await Assert.That(failed.Detail("code")).IsEqualTo("LocalPortInUse");
+        await Assert.That(failed.Detail("profile")).IsEqualTo("dev@ap-northeast-1");
     }
 
     [Test]
@@ -185,9 +185,9 @@ public class AuditLogTests
         await harness.Resolution.RefreshAsync(TestData.QueryConfig());
 
         var ambiguous = harness.WrittenWith("件一致しました");
-        await Assert.That(ambiguous.Detail("候補数")).IsEqualTo("2");
-        await Assert.That(ambiguous.Detail("候補")).Contains("redis-a[redis-a]");
-        await Assert.That(ambiguous.Detail("候補")).Contains("redis-b[redis-b]");
+        await Assert.That(ambiguous.Detail("candidateCount")).IsEqualTo("2");
+        await Assert.That(ambiguous.Detail("candidates")).Contains("redis-a[redis-a]");
+        await Assert.That(ambiguous.Detail("candidates")).Contains("redis-b[redis-b]");
     }
 
     [Test]
@@ -197,11 +197,11 @@ public class AuditLogTests
         var config = TestData.StaticConfig(name: "api-db");
 
         await harness.Configs.SaveAsync(config);
-        await Assert.That(harness.WrittenWith("を保存しました").Detail("設定ID"))
+        await Assert.That(harness.WrittenWith("を保存しました").Detail("configId"))
             .IsEqualTo(config.Id.Value.ToString());
 
         await harness.Configs.DeleteAsync(config.Id);
-        await Assert.That(harness.WrittenWith("を削除しました").Detail("操作")).IsEqualTo("削除");
+        await Assert.That(harness.WrittenWith("を削除しました").Detail("operation")).IsEqualTo("削除");
     }
 
     [Test]
@@ -214,8 +214,8 @@ public class AuditLogTests
         await startup.RunAsync();
 
         var start = harness.WrittenWith("Shionji を起動しました");
-        await Assert.That(start.Detail("利用者")).IsNotNull();
-        await Assert.That(start.Detail("端末")).IsEqualTo(Environment.MachineName);
-        await Assert.That(start.Detail("プロセス")).IsEqualTo(Environment.ProcessId.ToString());
+        await Assert.That(start.Detail("user")).IsNotNull();
+        await Assert.That(start.Detail("machine")).IsEqualTo(Environment.MachineName);
+        await Assert.That(start.Detail("process")).IsEqualTo(Environment.ProcessId.ToString());
     }
 }

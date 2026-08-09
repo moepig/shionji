@@ -1,4 +1,7 @@
+using System.Buffers;
 using System.Text;
+using System.Text.Encodings.Web;
+using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Shionji.Domain.Diagnostics;
 
@@ -6,10 +9,14 @@ namespace Shionji.Infrastructure.Logging;
 
 /// <summary>
 /// %APPDATA%/Shionji/logs/shionji-yyyyMMdd.log への素朴なファイルロガー。
-/// 常駐アプリの事後デバッグ用。14 日より古いログは起動時に削除する。
+/// 1 行 1 JSON オブジェクト (JSON Lines) で書く。常駐アプリの事後デバッグ用。
+/// 14 日より古いログは起動時に削除する。
 /// </summary>
 public sealed class FileLoggerProvider : ILoggerProvider
 {
+    /// <summary>BOM を書かない UTF-8。先頭行に BOM が挟まると JSON として読めなくなるため。</summary>
+    private static readonly UTF8Encoding Utf8NoBom = new(encoderShouldEmitUTF8Identifier: false);
+
     private readonly string _directory;
     private readonly int _retentionDays;
     private readonly object _sync = new();
@@ -35,7 +42,7 @@ public sealed class FileLoggerProvider : ILoggerProvider
             var path = Path.Combine(_directory, $"shionji-{DateTime.Now:yyyyMMdd}.log");
             try
             {
-                File.AppendAllText(path, line + Environment.NewLine, Encoding.UTF8);
+                File.AppendAllText(path, line + Environment.NewLine, Utf8NoBom);
             }
             catch (IOException)
             {
@@ -62,6 +69,15 @@ public sealed class FileLoggerProvider : ILoggerProvider
 
     private sealed class FileLogger(FileLoggerProvider provider, string category) : ILogger
     {
+        /// <summary>
+        /// 日本語を \uXXXX へ落とさず、そのまま読める形で書く。
+        /// 出力先はファイルであり、HTML や URL へ埋め込まれることはない。
+        /// </summary>
+        private static readonly JsonWriterOptions WriterOptions = new()
+        {
+            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        };
+
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
 
         public bool IsEnabled(LogLevel logLevel) => logLevel >= LogLevel.Information;
@@ -76,34 +92,67 @@ public sealed class FileLoggerProvider : ILoggerProvider
             if (!IsEnabled(logLevel))
                 return;
 
-            // 監査目的で時刻の解釈がぶれないよう、オフセット付きの ISO 8601 で記録する
-            var builder = new StringBuilder()
-                .Append(DateTimeOffset.Now.ToString("yyyy-MM-dd'T'HH:mm:ss.fffzzz"))
-                .Append(" [").Append(Level(logLevel)).Append("] ")
-                .Append(category).Append(": ")
-                .Append(formatter(state, exception));
-
-            // 画面には出さない詳細フィールドをテキストログにだけ展開する
-            if (state is IDetailedLogState detailed && detailed.Details.Count > 0)
+            var buffer = new ArrayBufferWriter<byte>(256);
+            using (var writer = new Utf8JsonWriter(buffer, WriterOptions))
             {
-                builder.Append(" |");
-                foreach (var (key, value) in detailed.Details)
-                    builder.Append(' ').Append(key).Append('=').Append(Quote(value));
+                writer.WriteStartObject();
+
+                // 監査目的で時刻の解釈がぶれないよう、オフセット付きの ISO 8601 で記録する
+                writer.WriteString("timestamp", DateTimeOffset.Now.ToString("yyyy-MM-dd'T'HH:mm:ss.fffzzz"));
+                writer.WriteString("level", Level(logLevel));
+                writer.WriteString("category", category);
+                writer.WriteString("message", formatter(state, exception));
+
+                // 画面には出さない詳細フィールドをファイルにだけ展開する。
+                // 入れ子にするのは、詳細のキーが timestamp などの外枠と衝突しないようにするため
+                if (state is IDetailedLogState detailed && detailed.Details.Count > 0)
+                {
+                    writer.WriteStartObject("details");
+                    foreach (var (key, value) in detailed.Details)
+                    {
+                        writer.WritePropertyName(key);
+                        WriteValue(writer, value);
+                    }
+
+                    writer.WriteEndObject();
+                }
+
+                if (exception is not null)
+                    writer.WriteString("exception", exception.ToString());
+
+                writer.WriteEndObject();
             }
 
-            if (exception is not null)
-                builder.AppendLine().Append(exception);
-
-            provider.Write(builder.ToString());
+            provider.Write(Encoding.UTF8.GetString(buffer.WrittenSpan));
         }
 
-        /// <summary>空白を含む値は引用符で囲み、key=値 の切れ目が曖昧にならないようにする。</summary>
-        private static string Quote(object? value)
+        /// <summary>数値と真偽値は JSON の型を保ち、それ以外は文字列にする。</summary>
+        private static void WriteValue(Utf8JsonWriter writer, object? value)
         {
-            var text = value?.ToString() ?? string.Empty;
-            return text.Any(char.IsWhiteSpace) || text.Contains('"')
-                ? $"\"{text.Replace("\"", "\"\"")}\""
-                : text;
+            switch (value)
+            {
+                case null:
+                    writer.WriteNullValue();
+                    break;
+                case bool flag:
+                    writer.WriteBooleanValue(flag);
+                    break;
+                case int number:
+                    writer.WriteNumberValue(number);
+                    break;
+                case long number:
+                    writer.WriteNumberValue(number);
+                    break;
+                case double number:
+                    writer.WriteNumberValue(number);
+                    break;
+                case decimal number:
+                    writer.WriteNumberValue(number);
+                    break;
+                default:
+                    writer.WriteStringValue(value.ToString());
+                    break;
+            }
         }
 
         private static string Level(LogLevel level) => level switch

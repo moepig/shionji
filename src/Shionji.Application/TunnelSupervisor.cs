@@ -205,12 +205,12 @@ public sealed class TunnelSupervisor(
         }
 
         _log.Audit(LogLevel.Information, $"[設定名: {ctx.Config.Name.Value}] 切断します ({ReasonLabel(reason)})",
-            ("試行", ctx.AttemptId),
-            ("設定", ctx.Config.Name.Value),
-            ("理由", ReasonLabel(reason)),
-            ("セッション", ctx.Handle?.SessionId),
-            ("接続秒", ctx.EstablishedAt is { } since
-                ? $"{(clock.UtcNow - since).TotalSeconds:0}"
+            ("attempt", ctx.AttemptId),
+            ("config", ctx.Config.Name.Value),
+            ("reason", ReasonLabel(reason)),
+            ("session", ctx.Handle?.SessionId),
+            ("connectedSeconds", ctx.EstablishedAt is { } since
+                ? (long)(clock.UtcNow - since).TotalSeconds
                 : null));
     }
 
@@ -337,9 +337,9 @@ public sealed class TunnelSupervisor(
 
             // どの検索条件がどの実リソースに解決されたかを証跡として残す
             _log.Audit(LogLevel.Information, $"[設定名: {config.Name.Value}] リソースを特定しました",
-                [("試行", ctx.AttemptId), ("設定", config.Name.Value),
-                 .. ResolvedDetails("転送先", destinationResource),
-                 .. ResolvedDetails("踏み台", gatewayResource)]);
+                [("attempt", ctx.AttemptId), ("config", config.Name.Value),
+                 .. ResolvedDetails("destination", destinationResource),
+                 .. ResolvedDetails("bastion", gatewayResource)]);
         }
 
         Port localPort;
@@ -452,14 +452,14 @@ public sealed class TunnelSupervisor(
 
                 handle = ctx.Handle;
                 _log.Audit(LogLevel.Warning, $"[設定名: {ctx.Config.Name.Value}] 接続が切れました",
-                    ("試行", ctx.AttemptId),
-                    ("設定", ctx.Config.Name.Value),
-                    ("セッション", handle?.SessionId),
-                    ("フェーズ", error.Phase),
-                    ("コード", error.Code),
-                    ("原因", error.Message),
-                    ("接続秒", ctx.EstablishedAt is { } since
-                        ? $"{(clock.UtcNow - since).TotalSeconds:0}"
+                    ("attempt", ctx.AttemptId),
+                    ("config", ctx.Config.Name.Value),
+                    ("session", handle?.SessionId),
+                    ("phase", error.Phase),
+                    ("code", error.Code),
+                    ("cause", error.Message),
+                    ("connectedSeconds", ctx.EstablishedAt is { } since
+                        ? (long)(clock.UtcNow - since).TotalSeconds
                         : null));
 
                 ctx.Handle = null;
@@ -553,7 +553,7 @@ public sealed class TunnelSupervisor(
 
     /// <summary>
     /// 状態遷移を記録する。要約は画面のステータスバーへ、
-    /// 詳細フィールド (どの経路でどこへ繋いだか) はテキストログへ展開される。
+    /// 詳細フィールド (どの経路でどこへ繋いだか) はファイルログへ展開される。
     /// </summary>
     private void LogStateChange(SessionContext ctx, SessionState state)
     {
@@ -564,7 +564,7 @@ public sealed class TunnelSupervisor(
         {
             case SessionState.Resolving:
                 _log.Audit(LogLevel.Information, $"[設定名: {name}] リソースを自動検索しています…",
-                    ("試行", ctx.AttemptId), ("設定", name), ("プロファイル", aws));
+                    ("attempt", ctx.AttemptId), ("config", name), ("profile", aws));
                 break;
 
             case SessionState.Starting starting:
@@ -575,38 +575,38 @@ public sealed class TunnelSupervisor(
             case SessionState.Established established:
                 _log.Audit(LogLevel.Information,
                     $"[設定名: {name}] localhost:{established.Plan.LocalPort.Value} で接続しました",
-                    [.. PlanDetails(ctx, established.Plan), ("セッション", ctx.Handle?.SessionId)]);
+                    [.. PlanDetails(ctx, established.Plan), ("session", ctx.Handle?.SessionId)]);
                 break;
 
             case SessionState.Closing:
                 _log.Audit(LogLevel.Information, $"[設定名: {name}] 切断しています…",
-                    ("試行", ctx.AttemptId), ("設定", name));
+                    ("attempt", ctx.AttemptId), ("config", name));
                 break;
 
             case SessionState.Idle:
                 _log.Audit(LogLevel.Information, $"[設定名: {name}] 切断しました",
-                    ("試行", ctx.AttemptId), ("設定", name));
+                    ("attempt", ctx.AttemptId), ("config", name));
                 break;
 
             case SessionState.Reconnecting reconnecting:
                 _log.Audit(LogLevel.Warning,
                     $"[設定名: {name}] 切断されました。{reconnecting.Delay.TotalSeconds:0} 秒後に再接続します ({reconnecting.Attempt} 回目)",
-                    ("試行", ctx.AttemptId),
-                    ("設定", name),
-                    ("再試行回数", reconnecting.Attempt),
-                    ("待機秒", reconnecting.Delay.TotalSeconds),
-                    ("フェーズ", reconnecting.Cause.Phase),
-                    ("コード", reconnecting.Cause.Code),
-                    ("原因", reconnecting.Cause.Message));
+                    ("attempt", ctx.AttemptId),
+                    ("config", name),
+                    ("retryCount", reconnecting.Attempt),
+                    ("delaySeconds", reconnecting.Delay.TotalSeconds),
+                    ("phase", reconnecting.Cause.Phase),
+                    ("code", reconnecting.Cause.Code),
+                    ("cause", reconnecting.Cause.Message));
                 break;
 
             case SessionState.Failed failed:
                 _log.Audit(LogLevel.Error, $"[設定名: {name}] 失敗: {failed.Error.Message}",
-                    ("試行", ctx.AttemptId),
-                    ("設定", name),
-                    ("フェーズ", failed.Error.Phase),
-                    ("コード", failed.Error.Code),
-                    ("プロファイル", aws));
+                    ("attempt", ctx.AttemptId),
+                    ("config", name),
+                    ("phase", failed.Error.Phase),
+                    ("code", failed.Error.Code),
+                    ("profile", aws));
                 break;
         }
     }
@@ -623,10 +623,10 @@ public sealed class TunnelSupervisor(
 
         return
         [
-            ($"{label}", resource.DisplayName),
-            ($"{label}ID", resource.Id.Value),
-            ($"{label}エンドポイント", endpoint),
-            ($"{label}SSM", resource.SsmTarget?.Value),
+            (label, resource.DisplayName),
+            ($"{label}Id", resource.Id.Value),
+            ($"{label}Endpoint", endpoint),
+            ($"{label}SsmTarget", resource.SsmTarget?.Value),
         ];
     }
 
@@ -650,14 +650,14 @@ public sealed class TunnelSupervisor(
 
         return
         [
-            ("試行", ctx.AttemptId),
-            ("設定", ctx.Config.Name.Value),
-            ("転送先", destination),
-            ("経路", gateway),
-            ("SSMターゲット", plan.Target.Value),
-            ("文書", plan.Mode.DocumentName),
-            ("プロファイル", $"{plan.Aws.Profile.Value}@{plan.Aws.Region.Value}"),
-            ("ローカル", $"localhost:{plan.LocalPort.Value}"),
+            ("attempt", ctx.AttemptId),
+            ("config", ctx.Config.Name.Value),
+            ("destination", destination),
+            ("gateway", gateway),
+            ("ssmTarget", plan.Target.Value),
+            ("document", plan.Mode.DocumentName),
+            ("profile", $"{plan.Aws.Profile.Value}@{plan.Aws.Region.Value}"),
+            ("local", $"localhost:{plan.LocalPort.Value}"),
         ];
     }
 

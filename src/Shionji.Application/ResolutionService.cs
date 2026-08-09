@@ -102,39 +102,39 @@ public sealed class ResolutionService(
         {
             case ResolutionOutcome.Resolved resolved:
                 _log.Audit(LogLevel.Information, $"[設定名: {name}] {label}を {resolved.Resource.DisplayName} に特定しました",
-                    ("設定", name),
-                    ("種別", label),
-                    ("リソース", resolved.Resource.DisplayName),
-                    ("リソースID", resolved.Resource.Id.Value),
-                    ("エンドポイント", resolved.Resource.Host?.Value),
-                    ("既定ポート", resolved.Resource.DefaultPort?.Value),
-                    ("SSMターゲット", resolved.Resource.SsmTarget?.Value),
-                    ("プロファイル", aws));
+                    ("config", name),
+                    ("kind", label),
+                    ("resource", resolved.Resource.DisplayName),
+                    ("resourceId", resolved.Resource.Id.Value),
+                    ("endpoint", resolved.Resource.Host?.Value),
+                    ("defaultPort", resolved.Resource.DefaultPort?.Value),
+                    ("ssmTarget", resolved.Resource.SsmTarget?.Value),
+                    ("profile", aws));
                 break;
 
             case ResolutionOutcome.NotFound:
                 _log.Audit(LogLevel.Warning, $"[設定名: {name}] 条件に一致する{label}が見つかりません",
-                    ("設定", name), ("種別", label), ("プロファイル", aws));
+                    ("config", name), ("kind", label), ("profile", aws));
                 break;
 
             case ResolutionOutcome.Ambiguous ambiguous:
                 _log.Audit(LogLevel.Warning,
                     $"[設定名: {name}] {label}が {ambiguous.Candidates.Count} 件一致しました。条件を絞り込んでください",
-                    ("設定", name),
-                    ("種別", label),
-                    ("候補数", ambiguous.Candidates.Count),
-                    ("候補", string.Join(", ", ambiguous.Candidates.Select(c => $"{c.DisplayName}[{c.Id.Value}]"))),
-                    ("プロファイル", aws));
+                    ("config", name),
+                    ("kind", label),
+                    ("candidateCount", ambiguous.Candidates.Count),
+                    ("candidates", string.Join(", ", ambiguous.Candidates.Select(c => $"{c.DisplayName}[{c.Id.Value}]"))),
+                    ("profile", aws));
                 break;
 
             case ResolutionOutcome.Failed failed:
                 _log.Audit(LogLevel.Error, $"[設定名: {name}] {label}の自動検索に失敗しました",
-                    ("設定", name),
-                    ("種別", label),
-                    ("フェーズ", failed.Error.Phase),
-                    ("コード", failed.Error.Code),
-                    ("原因", failed.Error.Message),
-                    ("プロファイル", aws));
+                    ("config", name),
+                    ("kind", label),
+                    ("phase", failed.Error.Phase),
+                    ("code", failed.Error.Code),
+                    ("cause", failed.Error.Message),
+                    ("profile", aws));
                 break;
         }
     }
