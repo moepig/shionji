@@ -7,6 +7,13 @@
             <ResourceDictionary.MergedDictionaries>
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
             </ResourceDictionary.MergedDictionaries>
+
+            <!-- メニューバーの寸法。既定の帯 40・項目の上下マージン 4 は一覧・詳細に対して大きいので詰める。
+                 項目のマージンは左右のみ残し、選択・ホバーの塗りが帯の高さいっぱいになるようにする。
+                 コントロールテンプレートの Setter が引く ThemeResource はテンプレートを定義した辞書側で解決されるため、
+                 MenuBar 要素のローカルリソースに置いても効かない。上書きはここ (MergedDictionaries の後) でのみ有効 -->
+            <x:Double x:Key="MenuBarHeight">30</x:Double>
+            <Thickness x:Key="MenuBarItemMargin">4,0</Thickness>
         </ResourceDictionary>
     </Application.Resources>
 </Application>
