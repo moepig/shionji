@@ -67,10 +67,10 @@ public sealed class ConfigService(
         }
 
         _log.Audit(LogLevel.Information, $"[設定名: {config.Name.Value}] 設定を保存しました",
-            ("操作", "保存"),
-            ("設定", config.Name.Value),
-            ("設定ID", config.Id.Value),
-            ("プロファイル", $"{config.Aws.Profile.Value}@{config.Aws.Region.Value}"));
+            ("operation", "保存"),
+            ("config", config.Name.Value),
+            ("configId", config.Id.Value),
+            ("profile", $"{config.Aws.Profile.Value}@{config.Aws.Region.Value}"));
         ConfigsChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -85,7 +85,7 @@ public sealed class ConfigService(
         }
 
         _log.Audit(LogLevel.Information, $"[設定名: {name}] 設定を削除しました",
-            ("操作", "削除"), ("設定", name), ("設定ID", id.Value));
+            ("operation", "削除"), ("config", name), ("configId", id.Value));
         resolutionService.Remove(id);
         sessionLogStore.Remove(id);
         ConfigsChanged?.Invoke(this, EventArgs.Empty);
