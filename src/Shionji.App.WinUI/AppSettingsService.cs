@@ -66,8 +66,8 @@ public sealed class WinUiAppSettingsService(
     public StartupOptions Startup => new(
         autoStart.IsEnabled,
         settingsStore.Current.StartMinimized,
-        settingsStore.Current.MinimizeToTray,
-        settingsStore.Current.HideOnMinimize);
+        settingsStore.Current.HideOnMinimize,
+        settingsStore.Current.ConfirmOnExit);
 
     public string LogDirectory => AppPaths.ResolveLogDirectory(settingsStore.Current);
 
@@ -92,8 +92,8 @@ public sealed class WinUiAppSettingsService(
             LogDirectory = AppPaths.NormalizeDirectory(edit.LogDirectory, AppPaths.DefaultLogDirectory),
             ConfigsDirectory = AppPaths.NormalizeDirectory(edit.ConfigsDirectory, AppPaths.DefaultDirectory),
             StartMinimized = edit.Startup.StartMinimized,
-            MinimizeToTray = edit.Startup.MinimizeToTray,
             HideOnMinimize = edit.Startup.HideOnMinimize,
+            ConfirmOnExit = edit.Startup.ConfirmOnExit,
         });
 
         if (autoStart.SetEnabled(edit.Startup.RunAtStartup) is { } problem)

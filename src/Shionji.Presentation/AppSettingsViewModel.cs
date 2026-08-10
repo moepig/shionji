@@ -40,8 +40,8 @@ public sealed partial class AppSettingsViewModel : ObservableObject
 
         RunAtStartup = settings.Startup.RunAtStartup;
         StartMinimized = settings.Startup.StartMinimized;
-        MinimizeToTray = settings.Startup.MinimizeToTray;
         HideOnMinimize = settings.Startup.HideOnMinimize;
+        ConfirmOnExit = settings.Startup.ConfirmOnExit;
     }
 
     /// <summary>
@@ -95,13 +95,13 @@ public sealed partial class AppSettingsViewModel : ObservableObject
     [ObservableProperty]
     public partial bool StartMinimized { get; set; }
 
-    /// <summary>ウィンドウを閉じたときに終了せず、タスクトレイへ格納する。</summary>
-    [ObservableProperty]
-    public partial bool MinimizeToTray { get; set; }
-
     /// <summary>ウィンドウを最小化したときに、タスクバーではなくタスクトレイへ格納する。</summary>
     [ObservableProperty]
     public partial bool HideOnMinimize { get; set; }
+
+    /// <summary>終了する前に確認を出す。</summary>
+    [ObservableProperty]
+    public partial bool ConfirmOnExit { get; set; }
 
     // --- ログ / 設定 ---
 
@@ -156,7 +156,7 @@ public sealed partial class AppSettingsViewModel : ObservableObject
             Theme,
             LogDirectory,
             ConfigsDirectory,
-            new StartupOptions(RunAtStartup, StartMinimized, MinimizeToTray, HideOnMinimize)));
+            new StartupOptions(RunAtStartup, StartMinimized, HideOnMinimize, ConfirmOnExit)));
         _themeSaved = true;
 
         Problems.Clear();

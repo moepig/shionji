@@ -175,7 +175,7 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                 </ScrollViewer>
-                <TextBlock Text="接続すると実行できます (ローカル側のホストとポートを差し込むため)"
+                <TextBlock Text="接続すると実行できます"
                            Style="{StaticResource CaptionTextBlockStyle}"
                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                            Visibility="{Binding CanRunCommands, Converter={StaticResource BoolToVis}, ConverterParameter=Invert}" />

@@ -13,14 +13,15 @@ namespace Shionji.App.WinUI;
 
 public sealed partial class MainWindow : Window
 {
-    private static readonly string IconPath =
-        Path.Combine(AppContext.BaseDirectory, "Assets", "shionji.ico");
-
     private readonly MainViewModel _viewModel;
     private readonly TunnelSupervisor _supervisor;
     private readonly AppSettingsStore _settings;
+    private readonly ThemeHost _themeHost;
     private TaskbarIcon? _trayIcon;
     private bool _exiting;
+
+    /// <summary>終了の確認を出している最中か。× とトレイの両方から重ねて呼ばれうる。</summary>
+    private bool _confirming;
 
     public MainWindow(IServiceProvider services, bool isDemoMode)
     {
@@ -36,15 +37,14 @@ public sealed partial class MainWindow : Window
         // Flyout の中身は視覚ツリーの外に置かれるため DataContext を明示する
         ActivityPanel.DataContext = _viewModel;
 
-        if (File.Exists(IconPath))
-            AppWindow.SetIcon(IconPath);
+        this.ApplyAppIcon();
         AppWindow.Resize(new Windows.Graphics.SizeInt32(1080, 720));
         AppWindow.Closing += OnClosing;
         AppWindow.Changed += OnAppWindowChanged;
 
         // 保存済みのカラーテーマを反映し、以降このウィンドウにも追従させる
-        var themeHost = services.GetRequiredService<ThemeHost>();
-        themeHost.Register(this);
+        _themeHost = services.GetRequiredService<ThemeHost>();
+        _themeHost.Register(this);
 
         SetupTrayIcon();
 
@@ -64,25 +64,20 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    /// <summary>メニューの「終了」。トレイ格納ではなく、全セッションを畳んで本当に終了する。</summary>
+    /// <summary>メニューとタスクトレイの「終了」。トレイ格納ではなく、全セッションを畳んで本当に終了する。</summary>
     private void OnExitRequested(object sender, RoutedEventArgs args) => _ = ExitAsync();
 
+    /// <summary>
+    /// タイトルバーの × は終了として扱う。トレイへ格納するのは最小化のときだけである。
+    /// 全セッションを畳んでからでないと終われないため、いったん取り消して終了処理へ渡す。
+    /// </summary>
     private void OnClosing(AppWindow sender, AppWindowClosingEventArgs args)
     {
-        if (!_exiting && _settings.Current.MinimizeToTray && _trayIcon is not null)
-        {
-            // トレイへ格納
-            args.Cancel = true;
-            AppWindow.Hide();
+        if (_exiting)
             return;
-        }
 
-        if (!_exiting)
-        {
-            // 全セッションを畳んでから終了する
-            args.Cancel = true;
-            _ = ExitAsync();
-        }
+        args.Cancel = true;
+        _ = ExitAsync();
     }
 
     /// <summary>
@@ -119,8 +114,8 @@ public sealed partial class MainWindow : Window
             NoLeftClickDelay = true,
             LeftClickCommand = new RelayCommand(ShowFromTray),
         };
-        if (File.Exists(IconPath))
-            _trayIcon.IconSource = new BitmapImage(new Uri(IconPath));
+        if (AppIcon.Exists)
+            _trayIcon.IconSource = new BitmapImage(new Uri(AppIcon.FilePath));
 
         try
         {
@@ -158,11 +153,61 @@ public sealed partial class MainWindow : Window
         Activate();
     }
 
+    /// <summary>
+    /// 終了してよいか尋ねる。確認を出さない設定なら、そのまま終了へ進む。
+    /// タスクトレイへ格納している間はダイアログを出す先が無いため、先にウィンドウを戻す。
+    /// </summary>
+    /// <returns>終了してよい場合は true。取り消した場合は false。</returns>
+    private async Task<bool> ConfirmExitAsync()
+    {
+        if (ExitPrompt.For(_settings.Current.ConfirmOnExit, _viewModel.ConnectedCount) is not { } prompt)
+            return true;
+
+        // 既に尋ねている最中なら、二重にダイアログを出さずそちらの返事に任せる
+        if (_confirming)
+        {
+            ShowFromTray();
+            return false;
+        }
+
+        ShowFromTray();
+
+        var dialog = new ContentDialog
+        {
+            XamlRoot = Content.XamlRoot,
+            // ダイアログは視覚ツリーの外に出るため、テーマを引き継がない。ここで揃える
+            RequestedTheme = _themeHost.Current,
+            Title = prompt.Title,
+            Content = prompt.Message,
+            PrimaryButtonText = "終了",
+            CloseButtonText = "キャンセル",
+            DefaultButton = ContentDialogButton.Close,
+        };
+
+        _confirming = true;
+        try
+        {
+            return await dialog.ShowAsync() == ContentDialogResult.Primary;
+        }
+        finally
+        {
+            _confirming = false;
+        }
+    }
+
     private async Task ExitAsync()
     {
         if (_exiting)
             return;
+
+        if (!await ConfirmExitAsync())
+            return;
+
         _exiting = true;
+
+        // 先にトレイから消す。畳んでいる間にもう一度「終了」を押せてしまうのを防ぐ
+        _trayIcon?.Dispose();
+        _trayIcon = null;
 
         try
         {
@@ -173,7 +218,8 @@ public sealed partial class MainWindow : Window
             // 終了を妨げない
         }
 
-        _trayIcon?.Dispose();
-        Microsoft.UI.Xaml.Application.Current.Exit();
+        // トレイへ格納してウィンドウを隠している間は Application.Exit ではプロセスが残るため、
+        // 後始末を終えたこの時点でプロセス自体を終える
+        Environment.Exit(0);
     }
 }

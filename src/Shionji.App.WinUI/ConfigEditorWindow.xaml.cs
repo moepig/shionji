@@ -1,4 +1,3 @@
-using System.IO;
 using Microsoft.UI.Xaml;
 using Shionji.Presentation;
 
@@ -7,9 +6,6 @@ namespace Shionji.App.WinUI;
 /// <summary>設定の追加 / 編集を行う独立ウィンドウ。</summary>
 public sealed partial class ConfigEditorWindow : Window
 {
-    private static readonly string IconPath =
-        Path.Combine(AppContext.BaseDirectory, "Assets", "shionji.ico");
-
     public ConfigEditorWindow(ConfigEditorViewModel editor, ThemeHost themeHost)
     {
         InitializeComponent();
@@ -17,8 +13,7 @@ public sealed partial class ConfigEditorWindow : Window
         Title = editor.WindowTitle;
         EditorView.DataContext = editor;
 
-        if (File.Exists(IconPath))
-            AppWindow.SetIcon(IconPath);
+        this.ApplyAppIcon();
         AppWindow.Resize(new Windows.Graphics.SizeInt32(620, 900));
         themeHost.Register(this);
 

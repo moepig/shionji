@@ -79,11 +79,15 @@
                                        Style="{StaticResource HintStyle}" />
 
                             <TextBlock Text="タスクトレイ" Margin="0,12,0,0" />
-                            <CheckBox Content="ウィンドウを閉じたときはタスクトレイへ格納する"
-                                      IsChecked="{Binding MinimizeToTray, Mode=TwoWay}" />
                             <CheckBox Content="ウィンドウを最小化したときはタスクトレイへ格納する"
                                       IsChecked="{Binding HideOnMinimize, Mode=TwoWay}" />
-                            <TextBlock Text="格納中もセッションは維持されます。トレイのアイコンから開き直せます。閉じたときに格納しない場合は、すべて切断してアプリを終了します。"
+                            <TextBlock Text="格納中もセッションは維持されます。トレイのアイコンから開き直せます。"
+                                       Style="{StaticResource HintStyle}" />
+
+                            <TextBlock Text="終了" Margin="0,12,0,0" />
+                            <CheckBox Content="終了するときに確認する"
+                                      IsChecked="{Binding ConfirmOnExit, Mode=TwoWay}" />
+                            <TextBlock Text="ウィンドウを閉じた場合も終了です。終了するときは、接続中のセッションをすべて切断します。"
                                        Style="{StaticResource HintStyle}" />
                         </StackPanel>
 

@@ -32,6 +32,9 @@ public sealed partial class MainViewModel : ObservableObject
 
     public ObservableCollection<ConfigRowViewModel> Rows { get; } = [];
 
+    /// <summary>接続中 (接続処理中を含む) の件数。終了の確認で、何が切れるかを示すのに使う。</summary>
+    public int ConnectedCount => Rows.Count(row => row.IsConnected);
+
     [ObservableProperty]
     public partial ConfigRowViewModel? SelectedRow { get; set; }
 
