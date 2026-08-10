@@ -14,6 +14,25 @@
             <Setter Property="Margin" Value="0,10,0,0" />
         </Style>
 
+        <!-- コマンド 1 件分の行 (表示名 / コマンド / 削除)。
+             表示名は短く、コマンドは長くなるため幅を分けている -->
+        <DataTemplate x:Key="CommandEntryTemplate">
+            <Grid ColumnSpacing="6" Margin="0,0,0,4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="150" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBox PlaceholderText="表示名" Text="{Binding Label, Mode=TwoWay}" />
+                <TextBox Grid.Column="1" PlaceholderText="コマンド" FontFamily="Consolas"
+                         Text="{Binding CommandLine, Mode=TwoWay}" />
+                <Button Grid.Column="2" Content="&#xE74D;" ToolTipService.ToolTip="このコマンドを削除"
+                        FontFamily="{ThemeResource SymbolThemeFontFamily}"
+                        Background="Transparent" BorderThickness="0"
+                        Command="{Binding RemoveCommand}" />
+            </Grid>
+        </DataTemplate>
+
         <!-- タグ条件 1 件分の行 (キー / 値 / 削除) -->
         <DataTemplate x:Key="TagEntryTemplate">
             <Grid ColumnSpacing="6" Margin="0,0,0,4">
@@ -158,6 +177,17 @@
                 <TextBlock Text="オプション" Style="{StaticResource FormSectionStyle}" />
                 <CheckBox Content="予期せぬ切断時に自動再接続する" IsChecked="{Binding AutoReconnect, Mode=TwoWay}" />
                 <CheckBox Content="アプリ起動時に自動接続する" IsChecked="{Binding ConnectOnLaunch, Mode=TwoWay}" />
+
+                <TextBlock Text="コマンド" Style="{StaticResource FormSectionStyle}" />
+                <StackPanel Spacing="4">
+                    <TextBlock Text="接続中に、詳細ペインのボタンから実行できる" />
+                    <ItemsControl ItemsSource="{Binding Commands}"
+                                  ItemTemplate="{StaticResource CommandEntryTemplate}" />
+                    <Button Content="＋ コマンドを追加" Command="{Binding AddCommandCommand}" />
+                    <TextBlock Text="{Binding CommandPlaceholderHint}" TextWrapping="Wrap"
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                </StackPanel>
             </StackPanel>
         </ScrollViewer>
 

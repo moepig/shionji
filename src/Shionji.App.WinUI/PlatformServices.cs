@@ -66,6 +66,29 @@ public sealed class WinUiClipboardService : IClipboardService
     }
 }
 
+/// <summary>
+/// 登録済みコマンドの起動。シェル経由で起動するため、PATH 上の名前や関連付けも書ける。
+/// </summary>
+public sealed class WinUiExternalCommandLauncher : IExternalCommandLauncher
+{
+    public string? Launch(string fileName, string arguments)
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(fileName)
+            {
+                Arguments = arguments,
+                UseShellExecute = true,
+            });
+            return null;
+        }
+        catch (Exception ex)
+        {
+            return $"コマンドを実行できません: {ex.Message}";
+        }
+    }
+}
+
 /// <summary>保存先をエクスプローラーで開く。</summary>
 public sealed class WinUiFileLocationService(string logDirectory) : IFileLocationService
 {

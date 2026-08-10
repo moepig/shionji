@@ -37,6 +37,34 @@ public class AppSettingsStoreTests
     }
 
     [Test]
+    public async Task タスクトレイの既定は閉じたときも最小化したときも格納する()
+    {
+        using var dir = new TempDir();
+
+        var settings = new AppSettingsStore(dir.File("appsettings.json")).Load();
+
+        await Assert.That(settings.HideOnMinimize).IsTrue();
+        await Assert.That(settings.StartMinimized).IsFalse();
+    }
+
+    [Test]
+    public async Task タスクトレイと起動の指定を読み書きできる()
+    {
+        using var dir = new TempDir();
+        var path = dir.File("appsettings.json");
+        new AppSettingsStore(path).Save(new AppSettings
+        {
+            HideOnMinimize = false,
+            StartMinimized = true,
+        });
+
+        var loaded = new AppSettingsStore(path).Load();
+
+        await Assert.That(loaded.HideOnMinimize).IsFalse();
+        await Assert.That(loaded.StartMinimized).IsTrue();
+    }
+
+    [Test]
     public async Task 保存時に親ディレクトリを作る()
     {
         using var dir = new TempDir();

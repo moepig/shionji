@@ -30,6 +30,9 @@ public sealed record ForwardingConfig
     public GatewaySpec Gateway { get; }
     public ConfigOptions Options { get; }
 
+    /// <summary>接続中に実行できるコマンド。</summary>
+    public LaunchCommands Commands { get; }
+
     private ForwardingConfig(
         ConfigId id,
         ConfigName name,
@@ -37,7 +40,8 @@ public sealed record ForwardingConfig
         LocalPortSpec localPort,
         Destination destination,
         GatewaySpec gateway,
-        ConfigOptions options)
+        ConfigOptions options,
+        LaunchCommands commands)
     {
         Id = id;
         Name = name;
@@ -46,6 +50,7 @@ public sealed record ForwardingConfig
         Destination = destination;
         Gateway = gateway;
         Options = options;
+        Commands = commands;
     }
 
     /// <summary>
@@ -55,6 +60,7 @@ public sealed record ForwardingConfig
     /// <item>EC2 / ECS 転送先は既定ポートを持たないため、ポートの明示指定が必要</item>
     /// </list>
     /// </summary>
+    /// <param name="commands">接続中に実行できるコマンド。省略時は無し。</param>
     public static Result<ForwardingConfig, ConfigValidationError> Create(
         ConfigId id,
         ConfigName name,
@@ -62,7 +68,8 @@ public sealed record ForwardingConfig
         LocalPortSpec localPort,
         Destination destination,
         GatewaySpec gateway,
-        ConfigOptions options)
+        ConfigOptions options,
+        LaunchCommands? commands = null)
     {
         if (gateway is GatewaySpec.Direct)
         {
@@ -91,7 +98,8 @@ public sealed record ForwardingConfig
         }
 
         return Result<ForwardingConfig, ConfigValidationError>.Success(
-            new ForwardingConfig(id, name, aws, localPort, destination, gateway, options));
+            new ForwardingConfig(
+                id, name, aws, localPort, destination, gateway, options, commands ?? LaunchCommands.Empty));
     }
 
     private static Result<ForwardingConfig, ConfigValidationError> Invalid(string code, string message) =>

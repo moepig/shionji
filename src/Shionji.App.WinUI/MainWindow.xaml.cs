@@ -40,6 +40,7 @@ public sealed partial class MainWindow : Window
             AppWindow.SetIcon(IconPath);
         AppWindow.Resize(new Windows.Graphics.SizeInt32(1080, 720));
         AppWindow.Closing += OnClosing;
+        AppWindow.Changed += OnAppWindowChanged;
 
         // 保存済みのカラーテーマを反映し、以降このウィンドウにも追従させる
         var themeHost = services.GetRequiredService<ThemeHost>();
@@ -84,6 +85,19 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// 最小化されたらタスクトレイへ格納する。最小化は presenter の状態変化として届くため、
+    /// ウィンドウの変更通知から拾う。
+    /// </summary>
+    private void OnAppWindowChanged(AppWindow sender, AppWindowChangedEventArgs args)
+    {
+        if (!args.DidPresenterChange || !_settings.Current.HideOnMinimize || _trayIcon is null)
+            return;
+
+        if (sender.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Minimized })
+            sender.Hide();
+    }
+
     private void SetupTrayIcon()
     {
         var flyout = new MenuFlyout();
@@ -119,9 +133,28 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// 設定に従い、ウィンドウを出さずタスクトレイへ格納した状態で始める。
+    /// 格納先が無い (トレイを作れなかった) 場合は格納しない。
+    /// </summary>
+    /// <returns>格納した場合は true、表示して始める場合は false。</returns>
+    internal bool StartInTray()
+    {
+        if (!_settings.Current.StartMinimized || _trayIcon is null)
+            return false;
+
+        AppWindow.Hide();
+        return true;
+    }
+
     internal void ShowFromTray()
     {
         AppWindow.Show();
+
+        // 最小化から格納した場合、出すだけでは最小化のままになる
+        if (AppWindow.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Minimized } presenter)
+            presenter.Restore();
+
         Activate();
     }
 

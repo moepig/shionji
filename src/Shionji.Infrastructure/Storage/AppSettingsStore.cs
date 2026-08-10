@@ -18,6 +18,12 @@ public sealed record AppSettings
     /// <summary>ウィンドウを閉じたときにタスクトレイへ格納する。</summary>
     public bool MinimizeToTray { get; set; } = true;
 
+    /// <summary>ウィンドウを最小化したときにタスクトレイへ格納する。</summary>
+    public bool HideOnMinimize { get; set; } = true;
+
+    /// <summary>起動時にウィンドウを出さず、タスクトレイへ格納した状態で始める。</summary>
+    public bool StartMinimized { get; set; }
+
     /// <summary>ログファイルの保持日数。監査要件に応じて延ばす。</summary>
     public int LogRetentionDays { get; set; } = 30;
 

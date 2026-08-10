@@ -34,7 +34,11 @@ public partial class App : Microsoft.UI.Xaml.Application
 
         _services = BuildServices();
         _window = new MainWindow(_services, IsDemoMode);
-        _window.Activate();
+
+        // タスクトレイへ格納した状態で始める指定なら、ウィンドウを出さずに常駐する。
+        // トレイに入れない環境では格納先が無いため、通常どおり表示する
+        if (!_window.StartInTray())
+            _window.Activate();
     }
 
     /// <summary>
@@ -118,6 +122,8 @@ public partial class App : Microsoft.UI.Xaml.Application
         services.AddSingleton<IUiDispatcher, WinUiDispatcher>();
         services.AddSingleton<INotificationService, WinUiNotificationService>();
         services.AddSingleton<IClipboardService, WinUiClipboardService>();
+        services.AddSingleton<IExternalCommandLauncher, WinUiExternalCommandLauncher>();
+        services.AddSingleton(new WindowsAutoStart());
 
         var themeHost = new ThemeHost();
         themeHost.Apply(WinUiAppSettingsService.ThemeOf(AppThemes.Parse(settings.Theme)));

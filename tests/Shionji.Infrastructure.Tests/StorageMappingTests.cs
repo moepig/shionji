@@ -10,7 +10,8 @@ public class StorageMappingTests
     private static ForwardingConfig Build(
         LocalPortSpec localPort,
         Destination destination,
-        GatewaySpec gateway) =>
+        GatewaySpec gateway,
+        LaunchCommands? commands = null) =>
         ForwardingConfig.Create(
             ConfigId.New(),
             ConfigName.Create("round-trip").Value,
@@ -18,7 +19,8 @@ public class StorageMappingTests
             localPort,
             destination,
             gateway,
-            new ConfigOptions(AutoReconnect: true, ConnectOnLaunch: true)).Value;
+            new ConfigOptions(AutoReconnect: true, ConnectOnLaunch: true),
+            commands).Value;
 
     private static async Task AssertRoundTrip(ForwardingConfig original)
     {
@@ -84,6 +86,27 @@ public class StorageMappingTests
                     MatchPolicy.PickFirst),
                 new PortSelection.Explicit(Port.Create(8080).Value)),
             GatewaySpec.Direct.Instance));
+    }
+
+    [Test]
+    public async Task 登録したコマンドのラウンドトリップ()
+    {
+        // 並び順と、プレースホルダを含む文字列がそのまま残ること
+        var config = Build(
+            new LocalPortSpec.Fixed(Port.Create(13306).Value),
+            new Destination.Static(HostName.Create("db.example.internal").Value, Port.Create(3306).Value),
+            new GatewaySpec.Ec2(new Ec2Selector.ById(InstanceId.Create("i-0123456789abcdef0").Value)),
+            LaunchCommands.From(
+            [
+                LaunchCommand.Create("MySQL", "mysql -h {host} -P {port}").Value,
+                LaunchCommand.Create(string.Empty, "http://{host}:{port}/").Value,
+            ]));
+
+        await AssertRoundTrip(config);
+
+        var restored = StorageMapping.ToDomain(StorageMapping.ToDto(config)).Value;
+        await Assert.That(restored.Commands.Items.Select(c => c.Label))
+            .IsEquivalentTo(["MySQL", "http://{host}:{port}/"]);
     }
 
     [Test]

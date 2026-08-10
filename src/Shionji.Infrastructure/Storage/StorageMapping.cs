@@ -23,6 +23,8 @@ public static class StorageMapping
         Gateway = ToDto(config.Gateway),
         AutoReconnect = config.Options.AutoReconnect,
         ConnectOnLaunch = config.Options.ConnectOnLaunch,
+        Commands = [.. config.Commands.Items.Select(
+            c => new CommandDto { Label = c.Label, CommandLine = c.CommandLine })],
     };
 
     public static Result<ForwardingConfig, string> ToDomain(ConfigDto dto)
@@ -40,7 +42,9 @@ public static class StorageMapping
                     : LocalPortSpec.Auto.Instance,
                 ToDomain(dto.Destination),
                 ToDomain(dto.Gateway),
-                new ConfigOptions(dto.AutoReconnect, dto.ConnectOnLaunch));
+                new ConfigOptions(dto.AutoReconnect, dto.ConnectOnLaunch),
+                LaunchCommands.From(
+                    dto.Commands.Select(c => Require(LaunchCommand.Create(c.Label, c.CommandLine)))));
             return config.Match(
                 Result<ForwardingConfig, string>.Success,
                 error => Result<ForwardingConfig, string>.Failure(error.Message));
