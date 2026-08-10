@@ -15,14 +15,14 @@ public sealed record AppSettings
     /// <summary>AWS API のエンドポイント上書き (VPC エンドポイントなど)。null なら通常のリージョン解決。</summary>
     public string? AwsEndpointOverride { get; set; }
 
-    /// <summary>ウィンドウを閉じたときにタスクトレイへ格納する。</summary>
-    public bool MinimizeToTray { get; set; } = true;
-
     /// <summary>ウィンドウを最小化したときにタスクトレイへ格納する。</summary>
     public bool HideOnMinimize { get; set; } = true;
 
     /// <summary>起動時にウィンドウを出さず、タスクトレイへ格納した状態で始める。</summary>
     public bool StartMinimized { get; set; }
+
+    /// <summary>終了する前に確認を出す。</summary>
+    public bool ConfirmOnExit { get; set; } = true;
 
     /// <summary>ログファイルの保持日数。監査要件に応じて延ばす。</summary>
     public int LogRetentionDays { get; set; } = 30;

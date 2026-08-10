@@ -12,7 +12,7 @@ public class AppSettingsStoreTests
 
         var settings = store.Load();
 
-        await Assert.That(settings.MinimizeToTray).IsTrue();
+        await Assert.That(settings.HideOnMinimize).IsTrue();
         await Assert.That(settings.PluginPath).IsNull();
         await Assert.That(settings.AwsEndpointOverride).IsNull();
     }
@@ -26,18 +26,16 @@ public class AppSettingsStoreTests
         {
             PluginPath = @"C:\tools\session-manager-plugin.exe",
             AwsEndpointOverride = "https://ssm.internal",
-            MinimizeToTray = false,
         });
 
         var loaded = new AppSettingsStore(path).Load();
 
         await Assert.That(loaded.PluginPath).IsEqualTo(@"C:\tools\session-manager-plugin.exe");
         await Assert.That(loaded.AwsEndpointOverride).IsEqualTo("https://ssm.internal");
-        await Assert.That(loaded.MinimizeToTray).IsFalse();
     }
 
     [Test]
-    public async Task タスクトレイの既定は閉じたときも最小化したときも格納する()
+    public async Task タスクトレイの既定は最小化したときだけ格納する()
     {
         using var dir = new TempDir();
 
@@ -48,7 +46,17 @@ public class AppSettingsStoreTests
     }
 
     [Test]
-    public async Task タスクトレイと起動の指定を読み書きできる()
+    public async Task 終了時の確認は既定で出す()
+    {
+        using var dir = new TempDir();
+
+        var settings = new AppSettingsStore(dir.File("appsettings.json")).Load();
+
+        await Assert.That(settings.ConfirmOnExit).IsTrue();
+    }
+
+    [Test]
+    public async Task タスクトレイと起動と終了の指定を読み書きできる()
     {
         using var dir = new TempDir();
         var path = dir.File("appsettings.json");
@@ -56,12 +64,14 @@ public class AppSettingsStoreTests
         {
             HideOnMinimize = false,
             StartMinimized = true,
+            ConfirmOnExit = false,
         });
 
         var loaded = new AppSettingsStore(path).Load();
 
         await Assert.That(loaded.HideOnMinimize).IsFalse();
         await Assert.That(loaded.StartMinimized).IsTrue();
+        await Assert.That(loaded.ConfirmOnExit).IsFalse();
     }
 
     [Test]
@@ -85,7 +95,7 @@ public class AppSettingsStoreTests
 
         var settings = new AppSettingsStore(path).Load();
 
-        await Assert.That(settings.MinimizeToTray).IsTrue();
+        await Assert.That(settings.HideOnMinimize).IsTrue();
     }
 
     [Test]
@@ -97,7 +107,22 @@ public class AppSettingsStoreTests
 
         var settings = new AppSettingsStore(path).Load();
 
-        await Assert.That(settings.MinimizeToTray).IsTrue();
+        await Assert.That(settings.HideOnMinimize).IsTrue();
+    }
+
+    [Test]
+    public async Task 廃止したキーが残っていても読める()
+    {
+        // 閉じたときの格納 (MinimizeToTray) は廃止した。
+        // 以前のバージョンが書いたファイルでも、残りの項目がそのまま効くこと
+        using var dir = new TempDir();
+        var path = dir.File("appsettings.json");
+        await File.WriteAllTextAsync(path, """{ "MinimizeToTray": false, "HideOnMinimize": false }""");
+
+        var settings = new AppSettingsStore(path).Load();
+
+        await Assert.That(settings.HideOnMinimize).IsFalse();
+        await Assert.That(settings.ConfirmOnExit).IsTrue();
     }
 
     [Test]
@@ -106,11 +131,11 @@ public class AppSettingsStoreTests
         // 将来バージョンで書かれたファイルを読んでも落ちない
         using var dir = new TempDir();
         var path = dir.File("appsettings.json");
-        await File.WriteAllTextAsync(path, """{ "MinimizeToTray": false, "FutureSetting": 42 }""");
+        await File.WriteAllTextAsync(path, """{ "HideOnMinimize": false, "FutureSetting": 42 }""");
 
         var settings = new AppSettingsStore(path).Load();
 
-        await Assert.That(settings.MinimizeToTray).IsFalse();
+        await Assert.That(settings.HideOnMinimize).IsFalse();
     }
 
     [Test]

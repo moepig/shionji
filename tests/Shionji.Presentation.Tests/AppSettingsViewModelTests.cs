@@ -53,24 +53,25 @@ public class AppSettingsViewModelTests
     {
         var ui = new UiHarness();
         ui.AppSettings.Startup = new StartupOptions(
-            RunAtStartup: true, StartMinimized: false, MinimizeToTray: true, HideOnMinimize: false);
+            RunAtStartup: true, StartMinimized: false, HideOnMinimize: false, ConfirmOnExit: true);
         ui.Main.ShowSettingsCommand.Execute(null);
         var settings = ui.SettingsWindow.Last;
 
         await Assert.That(settings.RunAtStartup).IsTrue();
         await Assert.That(settings.StartMinimized).IsFalse();
-        await Assert.That(settings.MinimizeToTray).IsTrue();
         await Assert.That(settings.HideOnMinimize).IsFalse();
+        await Assert.That(settings.ConfirmOnExit).IsTrue();
 
         settings.StartMinimized = true;
-        settings.MinimizeToTray = false;
+        settings.HideOnMinimize = true;
+        settings.ConfirmOnExit = false;
         settings.SaveCommand.Execute(null);
 
         var saved = ui.AppSettings.Saved.Single().Startup;
         await Assert.That(saved.RunAtStartup).IsTrue();
         await Assert.That(saved.StartMinimized).IsTrue();
-        await Assert.That(saved.MinimizeToTray).IsFalse();
-        await Assert.That(saved.HideOnMinimize).IsFalse();
+        await Assert.That(saved.HideOnMinimize).IsTrue();
+        await Assert.That(saved.ConfirmOnExit).IsFalse();
     }
 
     [Test]

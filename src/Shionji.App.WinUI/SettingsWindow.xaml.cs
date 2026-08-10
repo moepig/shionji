@@ -1,4 +1,3 @@
-using System.IO;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Shionji.Presentation;
@@ -8,9 +7,6 @@ namespace Shionji.App.WinUI;
 /// <summary>アプリ設定ウィンドウ (接続先設定とは別)。</summary>
 public sealed partial class SettingsWindow : Window
 {
-    private static readonly string IconPath =
-        Path.Combine(AppContext.BaseDirectory, "Assets", "shionji.ico");
-
     private readonly AppSettingsViewModel _settings;
 
     public SettingsWindow(AppSettingsViewModel settings, ThemeHost themeHost)
@@ -21,8 +17,7 @@ public sealed partial class SettingsWindow : Window
         Title = "設定";
         RootGrid.DataContext = settings;
 
-        if (File.Exists(IconPath))
-            AppWindow.SetIcon(IconPath);
+        this.ApplyAppIcon();
         AppWindow.Resize(new Windows.Graphics.SizeInt32(760, 620));
 
         themeHost.Register(this);

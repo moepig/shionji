@@ -82,16 +82,16 @@ public static class AppThemes
     public static string ToStorageValue(AppTheme theme) => theme.ToString();
 }
 
-/// <summary>起動時とウィンドウを閉じたときの扱い。真偽値が並ぶ取り違えを防ぐためまとめる。</summary>
+/// <summary>起動・最小化・終了の扱い。真偽値が並ぶ取り違えを防ぐためまとめる。</summary>
 /// <param name="RunAtStartup">Windows へのサインイン時にアプリを自動起動する。</param>
 /// <param name="StartMinimized">起動時にウィンドウを出さず、タスクトレイへ格納した状態で始める。</param>
-/// <param name="MinimizeToTray">ウィンドウを閉じたときに終了せず、タスクトレイへ格納する。</param>
 /// <param name="HideOnMinimize">ウィンドウを最小化したときに、タスクバーではなくタスクトレイへ格納する。</param>
+/// <param name="ConfirmOnExit">終了する前に確認を出す。</param>
 public sealed record StartupOptions(
     bool RunAtStartup,
     bool StartMinimized,
-    bool MinimizeToTray,
-    bool HideOnMinimize);
+    bool HideOnMinimize,
+    bool ConfirmOnExit);
 
 /// <summary>設定ウィンドウで編集できる内容。同じ型の引数が並ぶ取り違えを防ぐためまとめる。</summary>
 public sealed record AppSettingsEdit(

@@ -103,7 +103,7 @@ public class StorageLocationsTests
         {
             PluginPath = @"C:\tools\session-manager-plugin.exe",
             AwsEndpointOverride = "https://ssm.internal",
-            MinimizeToTray = false,
+            HideOnMinimize = false,
             LogRetentionDays = 400,
         });
 
@@ -113,7 +113,7 @@ public class StorageLocationsTests
         var reloaded = new AppSettingsStore(path).Load();
         await Assert.That(reloaded.PluginPath).IsEqualTo(@"C:\tools\session-manager-plugin.exe");
         await Assert.That(reloaded.AwsEndpointOverride).IsEqualTo("https://ssm.internal");
-        await Assert.That(reloaded.MinimizeToTray).IsFalse();
+        await Assert.That(reloaded.HideOnMinimize).IsFalse();
         await Assert.That(reloaded.LogRetentionDays).IsEqualTo(400);
         await Assert.That(reloaded.Theme).IsEqualTo("Dark");
         await Assert.That(reloaded.LogDirectory).IsEqualTo(temp.File("logs"));
