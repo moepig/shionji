@@ -17,10 +17,19 @@ public sealed partial class ConfigDetailViewModel(
 {
     private const int MaxLogLines = 200;
 
+    /// <summary>登録済みコマンドへ差し込むローカル側のホスト。</summary>
+    private const string LocalHost = "localhost";
+
     /// <summary>コピー完了表示を出しておく時間。</summary>
     private static readonly TimeSpan CopyConfirmationDuration = TimeSpan.FromSeconds(1.6);
 
+    /// <summary>いま並べているコマンドの内容。設定が変わったかの判定に使う。</summary>
+    private readonly List<LaunchCommand> _commandDefinitions = [];
+
     private int _copyGeneration;
+
+    /// <summary>待ち受けているローカル側のポート。確立していなければ null。</summary>
+    private int? _localPort;
 
     public Domain.ValueObjects.ConfigId ConfigId { get; } = configId;
 
@@ -96,6 +105,21 @@ public sealed partial class ConfigDetailViewModel(
     /// <summary>Ambiguous 時の候補一覧。</summary>
     public ObservableCollection<string> Candidates { get; } = [];
 
+    /// <summary>この接続先設定に登録されたコマンドのボタン。</summary>
+    public ObservableCollection<ExternalCommandViewModel> Commands { get; } = [];
+
+    /// <summary>コマンドの節を出すか (1 件でも登録されていれば出す)。</summary>
+    [ObservableProperty]
+    public partial bool HasCommands { get; set; }
+
+    /// <summary>コマンドを実行できる状態か。確立していないと差し込む値が決まらない。</summary>
+    [ObservableProperty]
+    public partial bool CanRunCommands { get; set; }
+
+    /// <summary>コマンドを起動できなかった理由。起動できた場合は null。</summary>
+    [ObservableProperty]
+    public partial string? CommandError { get; set; }
+
     public ObservableCollection<string> LogLines { get; } = [];
 
     /// <summary>セッションログ全文。読み取り専用のテキストとして選択・コピーできるようにする。</summary>
@@ -156,6 +180,38 @@ public sealed partial class ConfigDetailViewModel(
     [RelayCommand]
     private Task DeleteAsync() => owner.DeleteConfigAsync(ConfigId);
 
+    /// <summary>
+    /// コマンドのボタンを、接続先設定の登録内容に合わせる。
+    /// 内容が変わっていなければ並べ直さず、実行できるかどうかだけを更新する。
+    /// </summary>
+    private void SyncCommands(IReadOnlyList<LaunchCommand> definitions)
+    {
+        if (!_commandDefinitions.SequenceEqual(definitions))
+        {
+            _commandDefinitions.Clear();
+            _commandDefinitions.AddRange(definitions);
+
+            Commands.Clear();
+            foreach (var definition in definitions)
+                Commands.Add(new ExternalCommandViewModel(definition, RunCommand));
+
+            HasCommands = Commands.Count > 0;
+            CommandError = null;
+        }
+
+        CanRunCommands = _localPort is not null;
+        foreach (var command in Commands)
+            command.IsEnabled = CanRunCommands;
+    }
+
+    private void RunCommand(LaunchCommand command)
+    {
+        if (_localPort is not { } port)
+            return;
+
+        CommandError = owner.RunExternalCommand(command, LocalHost, port);
+    }
+
     internal void AppendLog(SessionLogEventArgs log)
     {
         if (log.ConfigId != ConfigId)
@@ -204,9 +260,10 @@ public sealed partial class ConfigDetailViewModel(
         CanConnect = state is SessionState.Idle or SessionState.Failed;
         CanDisconnect = IsConnected;
         SessionText = SessionSummary(state);
-        LocalEndpoint = state is SessionState.Established established
-            ? $"localhost:{established.Plan.LocalPort.Value}"
+        _localPort = state is SessionState.Established established
+            ? established.Plan.LocalPort.Value
             : null;
+        LocalEndpoint = _localPort is { } listening ? $"{LocalHost}:{listening}" : null;
         ErrorText = ComposeError(state, view);
         CanSsoLogin = HasCredentialsError(state, view);
 
@@ -214,6 +271,8 @@ public sealed partial class ConfigDetailViewModel(
         foreach (var candidate in CollectCandidates(view))
             Candidates.Add(candidate);
         HasCandidates = Candidates.Count > 0;
+
+        SyncCommands(config.Commands.Items);
     }
 
     /// <summary>ローカル側の表示。自動割当は接続するまで番号が決まらない。</summary>

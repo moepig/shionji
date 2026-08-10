@@ -28,6 +28,11 @@
                         <FontIcon Glyph="&#xE790;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
+                <NavigationViewItem Content="起動" Tag="Startup">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE7E8;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
                 <NavigationViewItem Content="ログ" Tag="Log">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xE9D9;" />
@@ -61,6 +66,25 @@
                                 <ComboBoxItem Content="ダーク" />
                             </ComboBox>
                             <TextBlock Text="選ぶとすぐに反映されます。" Style="{StaticResource HintStyle}" />
+                        </StackPanel>
+
+                        <!-- 起動 -->
+                        <StackPanel Spacing="10"
+                                    Visibility="{Binding IsStartupSection, Converter={StaticResource BoolToVis}}">
+                            <CheckBox Content="Windows へのサインイン時に起動する"
+                                      IsChecked="{Binding RunAtStartup, Mode=TwoWay}" />
+                            <CheckBox Content="起動時はタスクトレイに格納した状態で始める"
+                                      IsChecked="{Binding StartMinimized, Mode=TwoWay}" />
+                            <TextBlock Text="自動起動は現在のユーザーに対して登録されます。実行ファイルを別の場所へ移した場合は、登録し直してください。"
+                                       Style="{StaticResource HintStyle}" />
+
+                            <TextBlock Text="タスクトレイ" Margin="0,12,0,0" />
+                            <CheckBox Content="ウィンドウを閉じたときはタスクトレイへ格納する"
+                                      IsChecked="{Binding MinimizeToTray, Mode=TwoWay}" />
+                            <CheckBox Content="ウィンドウを最小化したときはタスクトレイへ格納する"
+                                      IsChecked="{Binding HideOnMinimize, Mode=TwoWay}" />
+                            <TextBlock Text="格納中もセッションは維持されます。トレイのアイコンから開き直せます。閉じたときに格納しない場合は、すべて切断してアプリを終了します。"
+                                       Style="{StaticResource HintStyle}" />
                         </StackPanel>
 
                         <!-- ログ -->

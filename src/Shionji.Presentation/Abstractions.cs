@@ -30,6 +30,15 @@ public interface ISettingsWindowService
     void ShowSettings(AppSettingsViewModel settings);
 }
 
+/// <summary>
+/// 登録済みコマンドを起動する。起動するだけで、終了は待たない。
+/// </summary>
+public interface IExternalCommandLauncher
+{
+    /// <summary>起動できなかった場合はその理由を返す。起動できた場合は null。</summary>
+    string? Launch(string fileName, string arguments);
+}
+
 /// <summary>アプリ設定ウィンドウを開くのに要る一式。MainViewModel の引数を膨らませないためにまとめる。</summary>
 public sealed record AppSettingsContext(
     IAppSettingsService Settings,
@@ -73,13 +82,31 @@ public static class AppThemes
     public static string ToStorageValue(AppTheme theme) => theme.ToString();
 }
 
+/// <summary>起動時とウィンドウを閉じたときの扱い。真偽値が並ぶ取り違えを防ぐためまとめる。</summary>
+/// <param name="RunAtStartup">Windows へのサインイン時にアプリを自動起動する。</param>
+/// <param name="StartMinimized">起動時にウィンドウを出さず、タスクトレイへ格納した状態で始める。</param>
+/// <param name="MinimizeToTray">ウィンドウを閉じたときに終了せず、タスクトレイへ格納する。</param>
+/// <param name="HideOnMinimize">ウィンドウを最小化したときに、タスクバーではなくタスクトレイへ格納する。</param>
+public sealed record StartupOptions(
+    bool RunAtStartup,
+    bool StartMinimized,
+    bool MinimizeToTray,
+    bool HideOnMinimize);
+
 /// <summary>設定ウィンドウで編集できる内容。同じ型の引数が並ぶ取り違えを防ぐためまとめる。</summary>
-public sealed record AppSettingsEdit(AppTheme Theme, string LogDirectory, string ConfigsDirectory);
+public sealed record AppSettingsEdit(
+    AppTheme Theme,
+    string LogDirectory,
+    string ConfigsDirectory,
+    StartupOptions Startup);
 
 /// <summary>アプリ設定 (接続先設定とは別) の読み書きとテーマ適用。</summary>
 public interface IAppSettingsService
 {
     AppTheme Theme { get; }
+
+    /// <summary>起動と格納の扱い。自動起動は OS 側の登録状態を指す。</summary>
+    StartupOptions Startup { get; }
 
     /// <summary>ログの保存先フォルダ。</summary>
     string LogDirectory { get; }

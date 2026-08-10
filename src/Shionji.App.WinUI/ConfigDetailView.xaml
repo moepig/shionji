@@ -152,6 +152,38 @@
                 </Button>
             </StackPanel>
 
+            <!-- アプリ設定に登録されたコマンド。1 件も無ければ節ごと出さない -->
+            <TextBlock Text="コマンド" Style="{StaticResource SectionHeadingStyle}"
+                       Visibility="{Binding HasCommands, Converter={StaticResource BoolToVis}}" />
+            <StackPanel Spacing="6"
+                        Visibility="{Binding HasCommands, Converter={StaticResource BoolToVis}}">
+                <!-- 登録数が増えても縦に伸ばさず、横へ流す -->
+                <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollMode="Disabled" VerticalScrollBarVisibility="Disabled">
+                    <ItemsControl ItemsSource="{Binding Commands}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" Spacing="8" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Content="{Binding Label}" IsEnabled="{Binding IsEnabled}"
+                                        Command="{Binding RunCommand}"
+                                        ToolTipService.ToolTip="{Binding CommandLine}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+                <TextBlock Text="接続すると実行できます (ローカル側のホストとポートを差し込むため)"
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           Visibility="{Binding CanRunCommands, Converter={StaticResource BoolToVis}, ConverterParameter=Invert}" />
+                <TextBlock Text="{Binding CommandError}" TextWrapping="Wrap" Foreground="IndianRed"
+                           IsTextSelectionEnabled="True"
+                           Visibility="{Binding CommandError, Converter={StaticResource NullToVis}}" />
+            </StackPanel>
+
             <TextBlock Text="セッションログ" Style="{StaticResource SectionHeadingStyle}"
                        Visibility="{Binding HasLog, Converter={StaticResource BoolToVis}}" />
             <!-- 読み取り専用のテキストとして、範囲選択して Ctrl+C できるようにする -->

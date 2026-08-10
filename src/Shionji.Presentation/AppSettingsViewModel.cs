@@ -8,11 +8,12 @@ namespace Shionji.Presentation;
 public enum SettingsSection
 {
     Display,
+    Startup,
     Log,
     Files,
 }
 
-/// <summary>アプリ設定ウィンドウ。表示 / ログ / 設定 を大項目として切り替える。</summary>
+/// <summary>アプリ設定ウィンドウ。表示 / 起動 / ログ / 設定 を大項目として切り替える。</summary>
 public sealed partial class AppSettingsViewModel : ObservableObject
 {
     private readonly IAppSettingsService _settings;
@@ -36,6 +37,11 @@ public sealed partial class AppSettingsViewModel : ObservableObject
         Theme = settings.Theme;
         LogDirectory = settings.LogDirectory;
         ConfigsDirectory = DirectoryOf(settings.ConfigsFilePath);
+
+        RunAtStartup = settings.Startup.RunAtStartup;
+        StartMinimized = settings.Startup.StartMinimized;
+        MinimizeToTray = settings.Startup.MinimizeToTray;
+        HideOnMinimize = settings.Startup.HideOnMinimize;
     }
 
     /// <summary>
@@ -51,18 +57,21 @@ public sealed partial class AppSettingsViewModel : ObservableObject
     /// <summary>いま開いている大項目。</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsDisplaySection))]
+    [NotifyPropertyChangedFor(nameof(IsStartupSection))]
     [NotifyPropertyChangedFor(nameof(IsLogSection))]
     [NotifyPropertyChangedFor(nameof(IsFilesSection))]
     [NotifyPropertyChangedFor(nameof(SectionTitle))]
     public partial SettingsSection Section { get; set; } = SettingsSection.Display;
 
     public bool IsDisplaySection => Section == SettingsSection.Display;
+    public bool IsStartupSection => Section == SettingsSection.Startup;
     public bool IsLogSection => Section == SettingsSection.Log;
     public bool IsFilesSection => Section == SettingsSection.Files;
 
     public string SectionTitle => Section switch
     {
         SettingsSection.Display => "表示",
+        SettingsSection.Startup => "起動",
         SettingsSection.Log => "ログ",
         SettingsSection.Files => "設定",
         _ => string.Empty,
@@ -75,6 +84,24 @@ public sealed partial class AppSettingsViewModel : ObservableObject
     public partial AppTheme Theme { get; set; }
 
     partial void OnThemeChanged(AppTheme value) => _settings.PreviewTheme(value);
+
+    // --- 起動 ---
+
+    /// <summary>Windows へのサインイン時に自動起動する。</summary>
+    [ObservableProperty]
+    public partial bool RunAtStartup { get; set; }
+
+    /// <summary>起動時はウィンドウを出さず、タスクトレイへ格納した状態で始める。</summary>
+    [ObservableProperty]
+    public partial bool StartMinimized { get; set; }
+
+    /// <summary>ウィンドウを閉じたときに終了せず、タスクトレイへ格納する。</summary>
+    [ObservableProperty]
+    public partial bool MinimizeToTray { get; set; }
+
+    /// <summary>ウィンドウを最小化したときに、タスクバーではなくタスクトレイへ格納する。</summary>
+    [ObservableProperty]
+    public partial bool HideOnMinimize { get; set; }
 
     // --- ログ / 設定 ---
 
@@ -125,7 +152,11 @@ public sealed partial class AppSettingsViewModel : ObservableObject
                 Resolve(ConfigsDirectory, _settings.DefaultConfigsDirectory),
                 DirectoryOf(_settings.ConfigsFilePath));
 
-        var problems = _settings.Save(new AppSettingsEdit(Theme, LogDirectory, ConfigsDirectory));
+        var problems = _settings.Save(new AppSettingsEdit(
+            Theme,
+            LogDirectory,
+            ConfigsDirectory,
+            new StartupOptions(RunAtStartup, StartMinimized, MinimizeToTray, HideOnMinimize)));
         _themeSaved = true;
 
         Problems.Clear();

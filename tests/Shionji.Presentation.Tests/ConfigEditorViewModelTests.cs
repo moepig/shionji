@@ -12,6 +12,18 @@ public class ConfigEditorViewModelTests
         return ui.EditorWindow.Last;
     }
 
+    /// <summary>保存が通る最小限の入力。着目する項目だけを試験本体で足す。</summary>
+    private static void FillStatic(ConfigEditorViewModel editor)
+    {
+        editor.Name = "api-db";
+        editor.Profile = "dev";
+        editor.DestinationKind = DestinationKind.Static;
+        editor.DestHost = "db.example.internal";
+        editor.DestPortText = "3306";
+        editor.GatewayKind = GatewayKind.Ec2ById;
+        editor.GwInstanceId = "i-0123456789abcdef0";
+    }
+
     [Test]
     public async Task 直接指定の設定を入力して保存できる()
     {
@@ -37,6 +49,80 @@ public class ConfigEditorViewModelTests
         // 保存後は行が選択され詳細に戻る
         await Assert.That(ui.Main.SelectedRow!.Name).IsEqualTo("api-db");
         await Assert.That(ui.Main.DetailContent).IsTypeOf<ConfigDetailViewModel>();
+    }
+
+    [Test]
+    public async Task コマンドを並べた順に保存できる()
+    {
+        var ui = new UiHarness();
+        var editor = NewEditor(ui);
+        FillStatic(editor);
+        editor.AddCommandCommand.Execute(null);
+        editor.Commands[0].Label = "MySQL";
+        editor.Commands[0].CommandLine = "mysql -h {host} -P {port}";
+        editor.AddCommandCommand.Execute(null);
+        editor.Commands[1].CommandLine = "http://{host}:{port}/";
+
+        await editor.SaveCommand.ExecuteAsync(null);
+
+        var commands = ui.App.Configs.Configs.Single().Commands.Items;
+        await Assert.That(commands.Select(c => c.Label))
+            .IsEquivalentTo(["MySQL", "http://{host}:{port}/"]);
+        // 表示名が空ならコマンドがそのまま名前になる
+        await Assert.That(commands[1].CommandLine).IsEqualTo("http://{host}:{port}/");
+    }
+
+    [Test]
+    public async Task 未入力のコマンド行は保存しない()
+    {
+        // 追加ボタンだけ押して埋めなかった行を残さない
+        var ui = new UiHarness();
+        var editor = NewEditor(ui);
+        FillStatic(editor);
+        editor.AddCommandCommand.Execute(null);
+        editor.AddCommandCommand.Execute(null);
+        editor.Commands[0].CommandLine = "notepad";
+
+        await editor.SaveCommand.ExecuteAsync(null);
+
+        await Assert.That(ui.App.Configs.Configs.Single().Commands.Items.Single().CommandLine)
+            .IsEqualTo("notepad");
+    }
+
+    [Test]
+    public async Task 表示名だけの行は検証エラーになり保存されない()
+    {
+        // 実行する内容が無い行を黙って捨てない
+        var ui = new UiHarness();
+        var editor = NewEditor(ui);
+        FillStatic(editor);
+        editor.AddCommandCommand.Execute(null);
+        editor.Commands[0].Label = "MySQL";
+
+        await editor.SaveCommand.ExecuteAsync(null);
+
+        await Assert.That(editor.ValidationError!).Contains("コマンド");
+        await Assert.That(ui.App.Configs.Configs.Count).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task 編集で開くと登録済みのコマンドが入っている()
+    {
+        var ui = new UiHarness();
+        await ui.App.Configs.SaveAsync(TestData.StaticConfig(
+            name: "api-db", commands: [TestData.Command("mysql -P {port}", "MySQL")]));
+        ui.Main.SelectedRow = ui.Main.Rows[0];
+
+        ((ConfigDetailViewModel)ui.Main.DetailContent!).EditCommand.Execute(null);
+        var editor = ui.EditorWindow.Last;
+
+        await Assert.That(editor.Commands.Single().Label).IsEqualTo("MySQL");
+        await Assert.That(editor.Commands.Single().CommandLine).IsEqualTo("mysql -P {port}");
+
+        editor.Commands[0].RemoveCommand.Execute(null);
+        await editor.SaveCommand.ExecuteAsync(null);
+
+        await Assert.That(ui.App.Configs.Configs.Single().Commands.IsEmpty).IsTrue();
     }
 
     [Test]

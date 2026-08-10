@@ -77,6 +77,7 @@ internal sealed class FakeFolderPicker : IFolderPickerService
 internal sealed class FakeAppSettings : IAppSettingsService
 {
     public AppTheme Theme { get; set; } = AppTheme.System;
+    public StartupOptions Startup { get; set; } = new(false, false, true, true);
     public string LogDirectory { get; set; } = @"C:\fake\logs";
     public string SettingsFilePath { get; set; } = @"C:\fake\appsettings.json";
     public string ConfigsFilePath { get; set; } = @"C:\fake\configs.json";
@@ -95,7 +96,22 @@ internal sealed class FakeAppSettings : IAppSettingsService
     {
         Saved.Add(edit);
         Theme = edit.Theme;
+        Startup = edit.Startup;
         return Problems;
+    }
+}
+
+internal sealed class FakeCommandLauncher : IExternalCommandLauncher
+{
+    public List<(string FileName, string Arguments)> Launched { get; } = [];
+
+    /// <summary>起動の失敗を再現する場合に設定。</summary>
+    public string? Error { get; set; }
+
+    public string? Launch(string fileName, string arguments)
+    {
+        Launched.Add((fileName, arguments));
+        return Error;
     }
 }
 
@@ -131,6 +147,7 @@ internal sealed class UiHarness
     public FakeAppSettings AppSettings { get; } = new();
     public FakeFolderPicker FolderPicker { get; } = new();
     public FakeSettingsWindow SettingsWindow { get; } = new();
+    public FakeCommandLauncher CommandLauncher { get; } = new();
     public MainViewModel Main { get; }
 
     public UiHarness(Shionji.Application.IRetryScheduler? scheduler = null)
@@ -154,6 +171,7 @@ internal sealed class UiHarness
             FileLocation,
             EditorWindow,
             App.Catalog,
-            new AppSettingsContext(AppSettings, FolderPicker, SettingsWindow));
+            new AppSettingsContext(AppSettings, FolderPicker, SettingsWindow),
+            CommandLauncher);
     }
 }

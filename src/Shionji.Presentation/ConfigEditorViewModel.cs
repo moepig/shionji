@@ -151,6 +151,19 @@ public sealed partial class ConfigEditorViewModel : ObservableObject
     [ObservableProperty]
     public partial bool ConnectOnLaunch { get; set; }
 
+    // --- 接続中に実行できるコマンド ---
+
+    /// <summary>コマンドの入力行。並びがそのまま詳細ペインのボタンの並びになる。</summary>
+    public ObservableCollection<CommandEntryViewModel> Commands { get; } = [];
+
+    /// <summary>コマンド行に書けるプレースホルダの案内。</summary>
+    public string CommandPlaceholderHint =>
+        $"{CommandTemplate.HostPlaceholder} と {CommandTemplate.PortPlaceholder} は、"
+        + "実行時に待ち受けているローカル側のホストとポート番号に置き換わります。";
+
+    [RelayCommand]
+    private void AddCommand() => Commands.Add(new CommandEntryViewModel(e => Commands.Remove(e)));
+
     [ObservableProperty]
     public partial string? ValidationError { get; set; }
 
@@ -282,6 +295,15 @@ public sealed partial class ConfigEditorViewModel : ObservableObject
         };
         editor.PopulateDestination(config.Destination);
         editor.PopulateGateway(config.Gateway);
+        foreach (var command in config.Commands.Items)
+        {
+            editor.Commands.Add(new CommandEntryViewModel(e => editor.Commands.Remove(e))
+            {
+                Label = command.Label,
+                CommandLine = command.CommandLine,
+            });
+        }
+
         return editor;
     }
 
@@ -326,7 +348,8 @@ public sealed partial class ConfigEditorViewModel : ObservableObject
 
             return ForwardingConfig.Create(
                     _id, name, aws, localPort, destination, gateway,
-                    new ConfigOptions(AutoReconnect, ConnectOnLaunch))
+                    new ConfigOptions(AutoReconnect, ConnectOnLaunch),
+                    BuildCommands())
                 .Match(
                     Result<ForwardingConfig, string>.Success,
                     error => Result<ForwardingConfig, string>.Failure(error.Message));
@@ -488,6 +511,14 @@ public sealed partial class ConfigEditorViewModel : ObservableObject
             throw new FormException($"{label}には数値を指定してください: {text}");
         return Require(Port.Create(value));
     }
+
+    /// <summary>
+    /// 入力行からコマンドを作る。名前もコマンドも空の行は無視し、
+    /// 名前だけ埋まっている行はエラーにする。
+    /// </summary>
+    private LaunchCommands BuildCommands() =>
+        LaunchCommands.From(
+            Commands.Where(e => !e.IsBlank).Select(e => Require(LaunchCommand.Create(e.Label, e.CommandLine))));
 
     /// <summary>
     /// 入力行から TagFilters を作る。並べた行はすべて満たす必要がある (AND)。

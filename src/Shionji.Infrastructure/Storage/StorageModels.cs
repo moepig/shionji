@@ -25,6 +25,17 @@ public sealed class ConfigDto
     public GatewayDto Gateway { get; set; } = null!;
     public bool AutoReconnect { get; set; }
     public bool ConnectOnLaunch { get; set; }
+
+    /// <summary>接続中に実行できるコマンド。並びがそのままボタンの並びになる。</summary>
+    public List<CommandDto> Commands { get; set; } = [];
+}
+
+public sealed class CommandDto
+{
+    public string Label { get; set; } = string.Empty;
+
+    /// <summary>実行する内容。ローカル側のホストとポートのプレースホルダを含みうる。</summary>
+    public string CommandLine { get; set; } = string.Empty;
 }
 
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]

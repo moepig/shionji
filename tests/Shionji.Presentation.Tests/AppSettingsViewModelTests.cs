@@ -31,6 +31,7 @@ public class AppSettingsViewModelTests
         await Assert.That(settings.Section).IsEqualTo(SettingsSection.Display);
         await Assert.That(settings.SectionTitle).IsEqualTo("表示");
         await Assert.That(settings.IsDisplaySection).IsTrue();
+        await Assert.That(settings.IsStartupSection).IsFalse();
         await Assert.That(settings.IsLogSection).IsFalse();
         await Assert.That(settings.IsFilesSection).IsFalse();
 
@@ -39,7 +40,51 @@ public class AppSettingsViewModelTests
         await Assert.That(settings.SectionTitle).IsEqualTo("設定");
         await Assert.That(settings.IsFilesSection).IsTrue();
         await Assert.That(settings.IsDisplaySection).IsFalse();
+
+        settings.Section = SettingsSection.Startup;
+
+        await Assert.That(settings.SectionTitle).IsEqualTo("起動");
+        await Assert.That(settings.IsStartupSection).IsTrue();
+        await Assert.That(settings.IsFilesSection).IsFalse();
     }
+
+    [Test]
+    public async Task 起動の設定は現在値が入り保存でそのまま渡る()
+    {
+        var ui = new UiHarness();
+        ui.AppSettings.Startup = new StartupOptions(
+            RunAtStartup: true, StartMinimized: false, MinimizeToTray: true, HideOnMinimize: false);
+        ui.Main.ShowSettingsCommand.Execute(null);
+        var settings = ui.SettingsWindow.Last;
+
+        await Assert.That(settings.RunAtStartup).IsTrue();
+        await Assert.That(settings.StartMinimized).IsFalse();
+        await Assert.That(settings.MinimizeToTray).IsTrue();
+        await Assert.That(settings.HideOnMinimize).IsFalse();
+
+        settings.StartMinimized = true;
+        settings.MinimizeToTray = false;
+        settings.SaveCommand.Execute(null);
+
+        var saved = ui.AppSettings.Saved.Single().Startup;
+        await Assert.That(saved.RunAtStartup).IsTrue();
+        await Assert.That(saved.StartMinimized).IsTrue();
+        await Assert.That(saved.MinimizeToTray).IsFalse();
+        await Assert.That(saved.HideOnMinimize).IsFalse();
+    }
+
+    [Test]
+    public async Task 起動の設定を変えても再起動は促さない()
+    {
+        // 保存先の移動ではないため、その場で効く
+        var settings = Open(out _);
+
+        settings.RunAtStartup = true;
+        settings.SaveCommand.Execute(null);
+
+        await Assert.That(settings.NeedsRestart).IsFalse();
+    }
+
 
     [Test]
     public async Task 大項目を切り替えても入力中の値は残る()

@@ -52,11 +52,22 @@ public sealed class ThemeHost
     }
 }
 
-/// <summary>アプリ設定の読み書き。保存先の指定も含めて appsettings.json 1 本にまとめている。</summary>
-public sealed class WinUiAppSettingsService(AppSettingsStore settingsStore, ThemeHost themeHost)
-    : IAppSettingsService
+/// <summary>
+/// アプリ設定の読み書き。保存先の指定も含めて appsettings.json 1 本にまとめている。
+/// 自動起動だけは OS 側の登録が状態であるため、そちらへ書く。
+/// </summary>
+public sealed class WinUiAppSettingsService(
+    AppSettingsStore settingsStore,
+    ThemeHost themeHost,
+    WindowsAutoStart autoStart) : IAppSettingsService
 {
     public AppTheme Theme => AppThemes.Parse(settingsStore.Current.Theme);
+
+    public StartupOptions Startup => new(
+        autoStart.IsEnabled,
+        settingsStore.Current.StartMinimized,
+        settingsStore.Current.MinimizeToTray,
+        settingsStore.Current.HideOnMinimize);
 
     public string LogDirectory => AppPaths.ResolveLogDirectory(settingsStore.Current);
 
@@ -75,12 +86,20 @@ public sealed class WinUiAppSettingsService(AppSettingsStore settingsStore, Them
         PreviewTheme(edit.Theme);
 
         // with で複製するので、ここで触っていない設定はそのまま残る
-        return settingsStore.Save(settingsStore.Current with
+        var problems = settingsStore.Save(settingsStore.Current with
         {
             Theme = AppThemes.ToStorageValue(edit.Theme),
             LogDirectory = AppPaths.NormalizeDirectory(edit.LogDirectory, AppPaths.DefaultLogDirectory),
             ConfigsDirectory = AppPaths.NormalizeDirectory(edit.ConfigsDirectory, AppPaths.DefaultDirectory),
+            StartMinimized = edit.Startup.StartMinimized,
+            MinimizeToTray = edit.Startup.MinimizeToTray,
+            HideOnMinimize = edit.Startup.HideOnMinimize,
         });
+
+        if (autoStart.SetEnabled(edit.Startup.RunAtStartup) is { } problem)
+            return [.. problems, problem];
+
+        return problems;
     }
 
     public static ElementTheme ThemeOf(AppTheme theme) => theme switch

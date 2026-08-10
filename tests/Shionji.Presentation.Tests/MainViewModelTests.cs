@@ -44,6 +44,36 @@ public class MainViewModelTests
     }
 
     [Test]
+    public async Task すべて接続すると未接続のものが繋がる()
+    {
+        var ui = new UiHarness();
+        await ui.App.Configs.SaveAsync(TestData.StaticConfig(name: "api-db", localPort: 15001));
+        await ui.App.Configs.SaveAsync(TestData.StaticConfig(name: "cache", localPort: 15002));
+
+        await ui.Main.ConnectAllCommand.ExecuteAsync(null);
+
+        await Assert.That(ui.Main.Rows.Select(r => r.Status))
+            .IsEquivalentTo([StatusKind.Connected, StatusKind.Connected]);
+    }
+
+    [Test]
+    public async Task すべて接続しても接続中のセッションはそのまま()
+    {
+        // 繋ぎ直すと通信中のものが切れるため
+        var ui = new UiHarness();
+        await ui.App.Configs.SaveAsync(TestData.StaticConfig(name: "api-db", localPort: 15001));
+        await ui.App.Configs.SaveAsync(TestData.StaticConfig(name: "cache", localPort: 15002));
+        var connected = ui.Main.Rows.Single(r => r.Name == "api-db");
+        await connected.ToggleConnectionCommand.ExecuteAsync(null);
+        var handle = ui.App.Launcher.LastHandle;
+
+        await ui.Main.ConnectAllCommand.ExecuteAsync(null);
+
+        await Assert.That(handle.Stopped).IsFalse();
+        await Assert.That(ui.App.Launcher.LaunchCount).IsEqualTo(2);
+    }
+
+    [Test]
     public async Task 接続中にトグルすると切断される()
     {
         var ui = new UiHarness();
