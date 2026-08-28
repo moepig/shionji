@@ -150,6 +150,62 @@ public class MainViewModelTests
     }
 
     [Test]
+    public async Task 行のコピーは選択中の設定によらず対象を新規追加ウィンドウで開く()
+    {
+        var ui = new UiHarness();
+        await ui.App.Configs.SaveAsync(TestData.StaticConfig(name: "api-db"));
+        await ui.App.Configs.SaveAsync(TestData.StaticConfig(name: "cache", localPort: 16379));
+        ui.Main.SelectedRow = ui.Main.Rows.Single(r => r.Name == "api-db");
+        var detail = ui.Main.DetailContent;
+        var row = ui.Main.Rows.Single(r => r.Name == "cache");
+
+        row.CopyCommand.Execute(null);
+
+        var editor = ui.EditorWindow.Last;
+        await Assert.That(editor.IsNew).IsTrue();
+        await Assert.That(editor.WindowTitle).IsEqualTo("接続先設定の追加");
+        await Assert.That(editor.Name).IsEqualTo("cache copy");
+        await Assert.That(editor.LocalPortText).IsEqualTo("16379");
+        await Assert.That(ui.Main.DetailContent).IsEqualTo(detail);
+        await Assert.That(ui.App.Configs.Configs.Count).IsEqualTo(2);
+
+        editor.Name = "保存しないコピー";
+        editor.CancelCommand.Execute(null);
+
+        await Assert.That(ui.EditorWindow.ClosedCount).IsEqualTo(1);
+        await Assert.That(ui.App.Configs.Configs.Select(c => c.Name.Value))
+            .IsEquivalentTo(["api-db", "cache"]);
+    }
+
+    [Test]
+    public async Task コピーを変更して保存すると別の設定になり元の接続は維持される()
+    {
+        var ui = new UiHarness();
+        var original = TestData.StaticConfig(name: "api-db");
+        await ui.App.Configs.SaveAsync(original);
+        var row = ui.Main.Rows.Single();
+        await row.ToggleConnectionCommand.ExecuteAsync(null);
+        var handle = ui.App.Launcher.LastHandle;
+
+        row.CopyCommand.Execute(null);
+        var editor = ui.EditorWindow.Last;
+        editor.Name = "backup-db";
+        editor.LocalPortText = "25432";
+        await editor.SaveCommand.ExecuteAsync(null);
+
+        await Assert.That(editor.ValidationError).IsNull();
+        await Assert.That(ui.App.Configs.Configs.Count).IsEqualTo(2);
+        await Assert.That(ui.App.Configs.Find(original.Id)).IsEqualTo(original);
+        var copy = ui.App.Configs.Configs.Single(c => c.Id != original.Id);
+        await Assert.That(copy.Name.Value).IsEqualTo("backup-db");
+        await Assert.That(ui.Main.SelectedRow!.ConfigId).IsEqualTo(copy.Id);
+        await Assert.That(ui.Main.SelectedRow!.LocalText).IsEqualTo(":25432 →");
+        await Assert.That(ui.EditorWindow.ClosedCount).IsEqualTo(1);
+        await Assert.That(handle.Stopped).IsFalse();
+        await Assert.That(ui.App.Supervisor.GetState(original.Id)).IsTypeOf<SessionState.Established>();
+    }
+
+    [Test]
     public async Task 保存とキャンセルでウィンドウが閉じる()
     {
         var ui = new UiHarness();

@@ -52,6 +52,25 @@ public sealed partial class MainWindow : Window
         _ = RunStartupAsync(startup);
     }
 
+    private void OnConfigContainerContentChanging(ListViewBase sender, ContainerContentChangingEventArgs args)
+    {
+        if (args.InRecycleQueue || args.Item is not ConfigRowViewModel row)
+        {
+            args.ItemContainer.ContextFlyout = null;
+            return;
+        }
+
+        // 行の余白も右クリック対象にし、再利用された行には現在の設定のコマンドを付け直す。
+        var flyout = new MenuFlyout();
+        flyout.Items.Add(new MenuFlyoutItem
+        {
+            Text = "コピー",
+            Icon = new SymbolIcon(Symbol.Copy),
+            Command = row.CopyCommand,
+        });
+        args.ItemContainer.ContextFlyout = flyout;
+    }
+
     private static async Task RunStartupAsync(StartupService startup)
     {
         try

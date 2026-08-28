@@ -1,5 +1,6 @@
 using Shionji.Domain.Configuration;
 using Shionji.Domain.Tunneling;
+using Shionji.Domain.ValueObjects;
 using Shionji.TestSupport;
 
 namespace Shionji.Presentation.Tests;
@@ -216,6 +217,67 @@ public class ConfigEditorViewModelTests
         var rebuilt = editor.Build();
         await Assert.That(rebuilt.IsSuccess).IsTrue();
         await Assert.That(rebuilt.Value).IsEqualTo(config);
+    }
+
+    [Test]
+    [Arguments(DestinationKind.Static, GatewayKind.Ec2ById)]
+    [Arguments(DestinationKind.ElastiCache, GatewayKind.Ec2ByQuery)]
+    [Arguments(DestinationKind.Aurora, GatewayKind.Ecs)]
+    [Arguments(DestinationKind.Ec2, GatewayKind.Direct)]
+    [Arguments(DestinationKind.EcsTask, GatewayKind.Direct)]
+    public async Task コピーは名前と識別子以外の設定を引き継ぐ(DestinationKind destination, GatewayKind gateway)
+    {
+        var ui = new UiHarness();
+        var source = ConfigEditorViewModel.ForExisting(ui.Main, TestData.StaticConfig(
+            autoReconnect: true, connectOnLaunch: true,
+            commands: [TestData.Command("mysql -P {port}", "MySQL"), TestData.Command("http://{host}:{port}/")]));
+        source.Profile = "staging";
+        source.Region = "us-west-2";
+        source.LocalPortText = destination == DestinationKind.Static ? "25432" : string.Empty;
+        source.DestinationKind = destination;
+        source.DestPortText = source.IsCacheDestination || source.IsAuroraDestination ? string.Empty : "5432";
+        source.DestNamePattern = "prod-*";
+        source.DestPickFirst = true;
+        source.CacheRole = CacheEndpointRole.Reader;
+        source.AuroraRole = AuroraEndpointRole.Reader;
+        source.DestCluster = "app-cluster";
+        source.DestService = "api-service";
+        source.DestContainer = "api-container";
+        source.AddDestTagCommand.Execute(null);
+        source.DestTags[0].Key = "Environment";
+        source.DestTags[0].Value = "production";
+        source.GatewayKind = gateway;
+        source.GwNamePattern = "bastion-*";
+        source.GwPickFirst = true;
+        source.GwCluster = "gateway-cluster";
+        source.GwService = "proxy-service";
+        source.GwContainer = "proxy-container";
+        source.AddGwTagCommand.Execute(null);
+        source.GwTags[0].Key = "Role";
+        source.GwTags[0].Value = "bastion";
+        var original = source.Build().Value;
+
+        var editor = ConfigEditorViewModel.ForCopy(ui.Main, original);
+        var built = editor.Build();
+
+        await Assert.That(built.IsSuccess).IsTrue();
+        var copy = built.Value;
+        await Assert.That(copy.Id).IsNotEqualTo(original.Id);
+        var expected = ForwardingConfig.Create(
+            copy.Id, ConfigName.Create(original.Name.Value + " copy").Value,
+            original.Aws, original.LocalPort, original.Destination, original.Gateway,
+            original.Options, original.Commands).Value;
+        await Assert.That(copy).IsEqualTo(expected);
+
+        // 入力行はコピー元と共有せず、変更や削除をしても元の内容を変えない。
+        editor.Commands[0].Label = "コピー側のコマンド";
+        editor.Commands[1].RemoveCommand.Execute(null);
+        if (editor.DestTags.Count > 0)
+            editor.DestTags[0].Value = "staging";
+        if (editor.GwTags.Count > 0)
+            editor.GwTags[0].RemoveCommand.Execute(null);
+
+        await Assert.That(source.Build().Value).IsEqualTo(original);
     }
 
     [Test]

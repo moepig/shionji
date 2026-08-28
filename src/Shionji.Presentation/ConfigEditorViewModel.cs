@@ -280,9 +280,20 @@ public sealed partial class ConfigEditorViewModel : ObservableObject
     public static ConfigEditorViewModel ForNew(MainViewModel owner) =>
         new(owner, ConfigId.New(), isNew: true);
 
-    public static ConfigEditorViewModel ForExisting(MainViewModel owner, ForwardingConfig config)
+    public static ConfigEditorViewModel ForExisting(MainViewModel owner, ForwardingConfig config) =>
+        FromConfig(owner, config, config.Id, isNew: false);
+
+    public static ConfigEditorViewModel ForCopy(MainViewModel owner, ForwardingConfig config)
     {
-        var editor = new ConfigEditorViewModel(owner, config.Id, isNew: false)
+        var editor = FromConfig(owner, config, ConfigId.New(), isNew: true);
+        editor.Name += " copy";
+        return editor;
+    }
+
+    private static ConfigEditorViewModel FromConfig(
+        MainViewModel owner, ForwardingConfig config, ConfigId id, bool isNew)
+    {
+        var editor = new ConfigEditorViewModel(owner, id, isNew)
         {
             Name = config.Name.Value,
             Profile = config.Aws.Profile.Value,

@@ -57,6 +57,9 @@ public sealed partial class ConfigRowViewModel(MainViewModel owner, ConfigId con
     [RelayCommand]
     private Task ToggleConnectionAsync() => owner.ToggleConnectionAsync(ConfigId);
 
+    [RelayCommand]
+    private void Copy() => owner.CopyConfig(ConfigId);
+
     internal void Update(
         ForwardingConfig config,
         SessionState state,

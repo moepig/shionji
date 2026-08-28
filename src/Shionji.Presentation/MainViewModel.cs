@@ -245,6 +245,12 @@ public sealed partial class MainViewModel : ObservableObject
             _editorWindow.ShowEditor(ConfigEditorViewModel.ForExisting(this, config));
     }
 
+    internal void CopyConfig(ConfigId id)
+    {
+        if (_configService.Find(id) is { } config)
+            _editorWindow.ShowEditor(ConfigEditorViewModel.ForCopy(this, config));
+    }
+
     /// <summary>編集終了。保存された場合はその行を選択して詳細を出す。</summary>
     internal void CloseEditor(ConfigId? savedId)
     {
