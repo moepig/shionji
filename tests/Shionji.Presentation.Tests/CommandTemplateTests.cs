@@ -4,6 +4,15 @@ namespace Shionji.Presentation.Tests;
 public class CommandTemplateTests
 {
     [Test]
+    public async Task IAMのプレースホルダは大小文字を区別せず再帰展開しない()
+    {
+        var expanded = CommandTemplate.Expand("db {USERNAME} {PASSWORD} {RemoteHost}",
+            "localhost", 15432, "App_{password}", "db:5432/?a=1&signature=abc", "db.rds.amazonaws.com");
+        await Assert.That(expanded).IsEqualTo("db App_{password} db:5432/?a=1&signature=abc db.rds.amazonaws.com");
+        await Assert.That(CommandTemplate.NeedsPassword("db {PASSWORD}")).IsTrue();
+    }
+
+    [Test]
     public async Task プレースホルダにローカル側の値が入る()
     {
         var expanded = CommandTemplate.Expand("mysql -h {host} -P {port} -u app", "localhost", 13306);

@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Shionji.Application;
 using Shionji.Domain.Configuration;
 using Shionji.Domain.Ports;
@@ -26,6 +28,8 @@ public sealed partial class MainViewModel : ObservableObject
     private readonly IResourceCatalog _catalog;
     private readonly AppSettingsContext _appSettings;
     private readonly IExternalCommandLauncher _commandLauncher;
+    private readonly IRdsAuthTokenProvider _rdsAuthTokens;
+    private readonly ILogger _log;
 
     private readonly Dictionary<ConfigId, ConfigRowViewModel> _rowsById = [];
     private readonly HashSet<ConfigId> _established = [];
@@ -89,7 +93,9 @@ public sealed partial class MainViewModel : ObservableObject
         IConfigEditorWindowService editorWindow,
         IResourceCatalog catalog,
         AppSettingsContext appSettings,
-        IExternalCommandLauncher commandLauncher)
+        IExternalCommandLauncher commandLauncher,
+        IRdsAuthTokenProvider rdsAuthTokens,
+        ILogger<MainViewModel>? logger = null)
     {
         _configService = configService;
         _supervisor = supervisor;
@@ -104,6 +110,8 @@ public sealed partial class MainViewModel : ObservableObject
         _catalog = catalog;
         _appSettings = appSettings;
         _commandLauncher = commandLauncher;
+        _rdsAuthTokens = rdsAuthTokens;
+        _log = logger ?? NullLogger<MainViewModel>.Instance;
 
         foreach (var entry in activityLog.Recent)
             AppendActivity(entry);
@@ -164,20 +172,6 @@ public sealed partial class MainViewModel : ObservableObject
         Task.WhenAll(_configService.Configs
             .Where(config => _supervisor.GetState(config.Id) is SessionState.Idle or SessionState.Failed)
             .Select(config => _supervisor.StartAsync(config)));
-
-    /// <summary>
-    /// 接続先設定に登録されたコマンドを、待ち受けているローカル側の値を差し込んで実行する。
-    /// </summary>
-    /// <returns>起動できなかった場合はその理由。起動できた場合は null。</returns>
-    internal string? RunExternalCommand(Domain.Configuration.LaunchCommand command, string host, int port)
-    {
-        var (fileName, arguments) = CommandTemplate.Split(
-            CommandTemplate.Expand(command.CommandLine, host, port));
-
-        return fileName.Length == 0
-            ? "コマンドが空です。"
-            : _commandLauncher.Launch(fileName, arguments);
-    }
 
     internal async Task ToggleConnectionAsync(ConfigId id)
     {

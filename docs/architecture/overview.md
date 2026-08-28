@@ -51,6 +51,7 @@ graph RL
 | `IForwardingConfigRepository` | 接続先設定の永続化 | `JsonForwardingConfigRepository` | `InMemoryConfigRepository` |
 | `ILocalPortProbe` | ローカルポートの空き確認と待ち受け確認 | `TcpLocalPortProbe` | 同じものを使う |
 | `ISsoLoginService` | ブラウザ承認による SSO ログイン | `SsoLoginService` | `FakeSsoLoginService` |
+| `IRdsAuthTokenProvider` | DB 接続に使う IAM 認証トークンを生成する | `RdsAuthTokenProvider` | `FakeRdsAuthTokenProvider` (生成不可を返す) |
 | `IClock` | 現在時刻 | `SystemClock` | 同じものを使う |
 
 プレゼンテーション層が定義するポートは、すべて WinUI ヘッドが実装する。UI スレッドへの投げ込み、クリップボード、トースト通知、フォルダ選択、ウィンドウの表示、アプリ設定の読み書きとテーマの適用、登録済みコマンドの起動が該当する。

@@ -26,6 +26,38 @@ public class ConfigEditorViewModelTests
     }
 
     [Test]
+    [Arguments(DestinationKind.Static)]
+    [Arguments(DestinationKind.Aurora)]
+    public async Task DBユーザー名を保存して編集で復元できる(DestinationKind kind)
+    {
+        var ui = new UiHarness();
+        var editor = NewEditor(ui);
+        FillStatic(editor);
+        editor.DestinationKind = kind;
+        editor.RdsIamUserName = "App_User";
+
+        await editor.SaveCommand.ExecuteAsync(null);
+
+        var config = ui.App.Configs.Configs.Single();
+        await Assert.That(config.RdsIamUserName!.Value).IsEqualTo("App_User");
+        var reopened = ConfigEditorViewModel.ForExisting(ui.Main, config);
+        await Assert.That(reopened.RdsIamUserName).IsEqualTo("App_User");
+        reopened.RdsIamUserName = "";
+        await Assert.That(reopened.Build().Value.RdsIamUserName).IsNull();
+    }
+
+    [Test]
+    public async Task 他の転送先に切り替えるとIAM認証は保存しない()
+    {
+        var editor = NewEditor(new UiHarness());
+        FillStatic(editor);
+        editor.RdsIamUserName = "App_User";
+        editor.DestinationKind = DestinationKind.ElastiCache;
+        await Assert.That(editor.CanUseRdsIamAuthentication).IsFalse();
+        await Assert.That(editor.Build().Value.RdsIamUserName).IsNull();
+    }
+
+    [Test]
     public async Task 直接指定の設定を入力して保存できる()
     {
         var ui = new UiHarness();

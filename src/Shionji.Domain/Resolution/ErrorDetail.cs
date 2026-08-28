@@ -20,6 +20,9 @@ public enum FailurePhase
 
     /// <summary>session-manager-plugin の起動・実行失敗。</summary>
     Plugin,
+
+    /// <summary>RDS IAM 認証トークンの生成失敗。</summary>
+    DatabaseAuthentication,
 }
 
 /// <summary>フェーズ付きのエラー詳細。</summary>

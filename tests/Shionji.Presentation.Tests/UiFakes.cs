@@ -19,8 +19,15 @@ internal sealed class RecordingNotificationService : INotificationService
 internal sealed class FakeClipboard : IClipboardService
 {
     public string? LastText { get; private set; }
+    public int SensitiveWrites { get; private set; }
 
     public void SetText(string text) => LastText = text;
+
+    public void SetSensitiveText(string text)
+    {
+        LastText = text;
+        SensitiveWrites++;
+    }
 }
 
 internal sealed class FakeEditorWindow : IConfigEditorWindowService
@@ -115,6 +122,26 @@ internal sealed class FakeCommandLauncher : IExternalCommandLauncher
     }
 }
 
+internal sealed class FakeRdsAuthTokens : Shionji.Domain.Ports.IRdsAuthTokenProvider
+{
+    public List<(Shionji.Domain.ValueObjects.AwsContext Aws, string Host, int Port, string UserName)> Requests { get; } = [];
+    public Shionji.Domain.Resolution.ErrorDetail? Error { get; set; }
+    public Func<Task>? Gate { get; set; }
+
+    public async Task<Shionji.Domain.Primitives.Result<string, Shionji.Domain.Resolution.ErrorDetail>> GenerateAsync(
+        Shionji.Domain.ValueObjects.AwsContext aws, Shionji.Domain.ValueObjects.HostName host,
+        Shionji.Domain.ValueObjects.Port port, Shionji.Domain.ValueObjects.DatabaseUserName userName,
+        CancellationToken cancellationToken = default)
+    {
+        Requests.Add((aws, host.Value, port.Value, userName.Value));
+        if (Gate is { } gate)
+            await gate();
+        return Error is { } error
+            ? Shionji.Domain.Primitives.Result<string, Shionji.Domain.Resolution.ErrorDetail>.Failure(error)
+            : Shionji.Domain.Primitives.Result<string, Shionji.Domain.Resolution.ErrorDetail>.Success($"test-token-{Requests.Count}");
+    }
+}
+
 internal sealed class FakeSsoLogin : Shionji.Domain.Ports.ISsoLoginService
 {
     public int Calls { get; private set; }
@@ -148,6 +175,9 @@ internal sealed class UiHarness
     public FakeFolderPicker FolderPicker { get; } = new();
     public FakeSettingsWindow SettingsWindow { get; } = new();
     public FakeCommandLauncher CommandLauncher { get; } = new();
+    public FakeRdsAuthTokens RdsAuthTokens { get; } = new();
+    public WrittenLog[] RdsAuthLogs =>
+        [.. App.Written.Where(log => log.Detail("operation") == "RdsIamAuthentication")];
     public MainViewModel Main { get; }
 
     public UiHarness(Shionji.Application.IRetryScheduler? scheduler = null)
@@ -172,6 +202,8 @@ internal sealed class UiHarness
             EditorWindow,
             App.Catalog,
             new AppSettingsContext(AppSettings, FolderPicker, SettingsWindow),
-            CommandLauncher);
+            CommandLauncher,
+            RdsAuthTokens,
+            App.LoggerFor<MainViewModel>());
     }
 }

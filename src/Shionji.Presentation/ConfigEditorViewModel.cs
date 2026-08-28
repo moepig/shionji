@@ -63,6 +63,7 @@ public sealed partial class ConfigEditorViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(IsNamedQueryDestination))]
     [NotifyPropertyChangedFor(nameof(IsCacheDestination))]
     [NotifyPropertyChangedFor(nameof(IsAuroraDestination))]
+    [NotifyPropertyChangedFor(nameof(CanUseRdsIamAuthentication))]
     [NotifyPropertyChangedFor(nameof(IsEcsTaskDestination))]
     [NotifyPropertyChangedFor(nameof(CanTestSearch))]
     [ObservableProperty]
@@ -75,6 +76,12 @@ public sealed partial class ConfigEditorViewModel : ObservableObject
     public bool IsCacheDestination => DestinationKind == DestinationKind.ElastiCache;
     public bool IsAuroraDestination => DestinationKind == DestinationKind.Aurora;
     public bool IsEcsTaskDestination => DestinationKind == DestinationKind.EcsTask;
+
+    public bool CanUseRdsIamAuthentication => DestinationKind is DestinationKind.Static or DestinationKind.Aurora;
+
+    /// <summary>空なら IAM 認証を使用しない。パスワードの入力・保存は行わない。</summary>
+    [ObservableProperty]
+    public partial string RdsIamUserName { get; set; } = string.Empty;
 
     [ObservableProperty]
     public partial string DestHost { get; set; } = string.Empty;
@@ -159,7 +166,10 @@ public sealed partial class ConfigEditorViewModel : ObservableObject
     /// <summary>コマンド行に書けるプレースホルダの案内。</summary>
     public string CommandPlaceholderHint =>
         $"{CommandTemplate.HostPlaceholder} と {CommandTemplate.PortPlaceholder} は、"
-        + "実行時に待ち受けているローカル側のホストとポート番号に置き換わります。";
+        + "実行時に待ち受けているローカル側のホストとポート番号に置き換わります。"
+        + " {remotehost} は踏み台から接続する転送先ホストです。"
+        + " RDS IAM 認証では {username} が DB ユーザー名、{password} が実行時に生成する認証トークンになります。"
+        + " 引数のトークンは他のプロセスから見える可能性があります。信頼できる DB クライアントでのみ使用してください。";
 
     [RelayCommand]
     private void AddCommand() => Commands.Add(new CommandEntryViewModel(e => Commands.Remove(e)));
@@ -303,6 +313,7 @@ public sealed partial class ConfigEditorViewModel : ObservableObject
                 : string.Empty,
             AutoReconnect = config.Options.AutoReconnect,
             ConnectOnLaunch = config.Options.ConnectOnLaunch,
+            RdsIamUserName = config.RdsIamUserName?.Value ?? string.Empty,
         };
         editor.PopulateDestination(config.Destination);
         editor.PopulateGateway(config.Gateway);
@@ -360,7 +371,10 @@ public sealed partial class ConfigEditorViewModel : ObservableObject
             return ForwardingConfig.Create(
                     _id, name, aws, localPort, destination, gateway,
                     new ConfigOptions(AutoReconnect, ConnectOnLaunch),
-                    BuildCommands())
+                    BuildCommands(),
+                    CanUseRdsIamAuthentication && !string.IsNullOrWhiteSpace(RdsIamUserName)
+                        ? Require(DatabaseUserName.Create(RdsIamUserName))
+                        : null)
                 .Match(
                     Result<ForwardingConfig, string>.Success,
                     error => Result<ForwardingConfig, string>.Failure(error.Message));

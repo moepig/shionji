@@ -12,7 +12,8 @@ public class ForwardingConfigTests
     private static Destination QueryDest(ResourceQuery query, PortSelection? port = null) =>
         new Destination.Query(query, port ?? new PortSelection.Explicit(TestData.Port(5432)));
 
-    private static Result<ForwardingConfig, ConfigValidationError> Create(Destination dest, GatewaySpec gateway) =>
+    private static Result<ForwardingConfig, ConfigValidationError> Create(
+        Destination dest, GatewaySpec gateway, DatabaseUserName? rdsIamUserName = null) =>
         ForwardingConfig.Create(
             ConfigId.New(),
             TestData.Name("test"),
@@ -20,7 +21,27 @@ public class ForwardingConfigTests
             LocalPortSpec.Auto.Instance,
             dest,
             gateway,
-            ConfigOptions.Default);
+            ConfigOptions.Default, rdsIamUserName: rdsIamUserName);
+
+    [Test]
+    public async Task IAM認証はAurora検索とエンドポイント直接指定で使える()
+    {
+        var user = DatabaseUserName.Create("app_user").Value;
+        var aurora = Create(QueryDest(TestData.QueryAurora()), TestData.Ec2GatewayById(), user);
+        var direct = Create(StaticDest(), TestData.Ec2GatewayById(), user);
+        await Assert.That(aurora.Value.RdsIamUserName).IsEqualTo(user);
+        await Assert.That(direct.Value.RdsIamUserName).IsEqualTo(user);
+    }
+
+    [Test]
+    public async Task IAM認証を他のリソース検索に設定できない()
+    {
+        foreach (var query in new ResourceQuery[] { TestData.QueryCache(), TestData.QueryEc2(), TestData.QueryEcsTask() })
+        {
+            var result = Create(QueryDest(query), TestData.Ec2GatewayById(), DatabaseUserName.Create("app").Value);
+            await Assert.That(result.Error.Code).IsEqualTo(ConfigValidationError.Codes.RdsIamDestinationRequired);
+        }
+    }
 
     // --- 経路 Direct が不正になる転送先 ---
 

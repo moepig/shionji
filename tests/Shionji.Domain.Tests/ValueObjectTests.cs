@@ -2,6 +2,21 @@ using Shionji.Domain.ValueObjects;
 
 namespace Shionji.Domain.Tests;
 
+public class DatabaseUserNameTests
+{
+    [Test]
+    [Arguments("")]
+    [Arguments("   ")]
+    [Arguments("app\nuser")]
+    [Arguments("app\0user")]
+    public async Task 空欄と制御文字は受け付けない(string value) =>
+        await Assert.That(DatabaseUserName.Create(value).IsFailure).IsTrue();
+
+    [Test]
+    public async Task 前後の空白だけを除き大文字小文字を保持する() =>
+        await Assert.That(DatabaseUserName.Create(" App_User ").Value.Value).IsEqualTo("App_User");
+}
+
 public class PortTests
 {
     [Test]

@@ -11,7 +11,8 @@ public class StorageMappingTests
         LocalPortSpec localPort,
         Destination destination,
         GatewaySpec gateway,
-        LaunchCommands? commands = null) =>
+        LaunchCommands? commands = null,
+        DatabaseUserName? rdsIamUserName = null) =>
         ForwardingConfig.Create(
             ConfigId.New(),
             ConfigName.Create("round-trip").Value,
@@ -20,7 +21,46 @@ public class StorageMappingTests
             destination,
             gateway,
             new ConfigOptions(AutoReconnect: true, ConnectOnLaunch: true),
-            commands).Value;
+            commands, rdsIamUserName).Value;
+
+    [Test]
+    public async Task IAM認証のユーザー名のみを保存し復元する()
+    {
+        var config = Build(LocalPortSpec.Auto.Instance,
+            new Destination.Query(
+                new AuroraQuery(null, TagFilters.Empty, MatchPolicy.RequireSingle, AuroraEndpointRole.Writer),
+                PortSelection.FromResource.Instance),
+            new GatewaySpec.Ec2(new Ec2Selector.ById(InstanceId.Create("i-0123456789abcdef0").Value)),
+            rdsIamUserName: DatabaseUserName.Create("App_User").Value);
+
+        await AssertRoundTrip(config);
+        using var json = JsonDocument.Parse(JsonSerializer.Serialize(StorageMapping.ToDto(config)));
+        await Assert.That(json.RootElement.GetProperty("RdsIamUserName").GetString()).IsEqualTo("App_User");
+        await Assert.That(json.RootElement.TryGetProperty("Password", out _)).IsFalse();
+        await Assert.That(json.RootElement.TryGetProperty("Token", out _)).IsFalse();
+    }
+
+    [Test]
+    public async Task IAM認証のキーがない既存のJSONを読める()
+    {
+        var config = Build(LocalPortSpec.Auto.Instance,
+            new Destination.Static(HostName.Create("db.example.internal").Value, Port.Create(5432).Value),
+            new GatewaySpec.Ec2(new Ec2Selector.ById(InstanceId.Create("i-0123456789abcdef0").Value)));
+        var json = JsonSerializer.Serialize(StorageMapping.ToDto(config));
+        await Assert.That(json.Contains("RdsIamUserName", StringComparison.Ordinal)).IsFalse();
+        var restored = StorageMapping.ToDomain(JsonSerializer.Deserialize<ConfigDto>(json)!);
+        await Assert.That(restored.Value.RdsIamUserName).IsNull();
+    }
+
+    [Test]
+    public async Task 空のIAMユーザー名を含むDTOは検証エラーになる()
+    {
+        var dto = StorageMapping.ToDto(Build(LocalPortSpec.Auto.Instance,
+            new Destination.Static(HostName.Create("db.example.internal").Value, Port.Create(5432).Value),
+            new GatewaySpec.Ec2(new Ec2Selector.ById(InstanceId.Create("i-0123456789abcdef0").Value))));
+        dto.RdsIamUserName = " ";
+        await Assert.That(StorageMapping.ToDomain(dto).IsFailure).IsTrue();
+    }
 
     private static async Task AssertRoundTrip(ForwardingConfig original)
     {

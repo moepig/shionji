@@ -6,7 +6,8 @@ using Shionji.Domain.ValueObjects;
 namespace Shionji.TestSupport;
 
 /// <summary>テキストログに出る 1 行分 (要約 + 詳細フィールド)。</summary>
-public sealed record WrittenLog(LogLevel Level, string Summary, IReadOnlyDictionary<string, string> Details)
+public sealed record WrittenLog(
+    LogLevel Level, string Summary, IReadOnlyDictionary<string, string> Details, Exception? Exception = null)
 {
     public string? Detail(string key) => Details.GetValueOrDefault(key);
 }
@@ -39,7 +40,7 @@ internal sealed class RecordingLogProvider(List<WrittenLog> sink) : ILoggerProvi
 
             lock (sink)
             {
-                sink.Add(new WrittenLog(logLevel, formatter(state, exception), details));
+                sink.Add(new WrittenLog(logLevel, formatter(state, exception), details, exception));
             }
         }
     }

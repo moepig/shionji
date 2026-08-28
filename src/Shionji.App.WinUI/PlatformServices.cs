@@ -64,6 +64,18 @@ public sealed class WinUiClipboardService : IClipboardService
         package.SetText(text);
         Clipboard.SetContent(package);
     }
+
+    public void SetSensitiveText(string text)
+    {
+        var package = new DataPackage();
+        package.SetText(text);
+        if (!Clipboard.SetContentWithOptions(package, new ClipboardContentOptions
+            {
+                IsAllowedInHistory = false,
+                IsRoamable = false,
+            }))
+            throw new InvalidOperationException("クリップボードへコピーできませんでした。");
+    }
 }
 
 /// <summary>

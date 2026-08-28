@@ -23,6 +23,7 @@ public static class StorageMapping
         Gateway = ToDto(config.Gateway),
         AutoReconnect = config.Options.AutoReconnect,
         ConnectOnLaunch = config.Options.ConnectOnLaunch,
+        RdsIamUserName = config.RdsIamUserName?.Value,
         Commands = [.. config.Commands.Items.Select(
             c => new CommandDto { Label = c.Label, CommandLine = c.CommandLine })],
     };
@@ -44,7 +45,8 @@ public static class StorageMapping
                 ToDomain(dto.Gateway),
                 new ConfigOptions(dto.AutoReconnect, dto.ConnectOnLaunch),
                 LaunchCommands.From(
-                    dto.Commands.Select(c => Require(LaunchCommand.Create(c.Label, c.CommandLine)))));
+                    dto.Commands.Select(c => Require(LaunchCommand.Create(c.Label, c.CommandLine)))),
+                dto.RdsIamUserName is { } userName ? Require(DatabaseUserName.Create(userName)) : null);
             return config.Match(
                 Result<ForwardingConfig, string>.Success,
                 error => Result<ForwardingConfig, string>.Failure(error.Message));

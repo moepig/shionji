@@ -1,3 +1,6 @@
+using System.Globalization;
+using System.Text.RegularExpressions;
+
 namespace Shionji.Presentation;
 
 /// <summary>
@@ -12,14 +15,33 @@ public static class CommandTemplate
     /// <summary>待ち受けているローカル側のポート番号に置き換わる。</summary>
     public const string PortPlaceholder = "{port}";
 
+    public const string UserNamePlaceholder = "{username}";
+    public const string PasswordPlaceholder = "{password}";
+    public const string RemoteHostPlaceholder = "{remotehost}";
+
+    public static bool NeedsPassword(string commandLine) =>
+        commandLine.Contains(PasswordPlaceholder, StringComparison.OrdinalIgnoreCase);
+
+    public static bool NeedsUserName(string commandLine) =>
+        commandLine.Contains(UserNamePlaceholder, StringComparison.OrdinalIgnoreCase);
+
     /// <summary>
     /// プレースホルダを実際の値へ差し込む。大文字と小文字は区別しない。
     /// 該当しない箇所は書かれたまま残す。
     /// </summary>
-    public static string Expand(string commandLine, string host, int port) =>
-        commandLine
-            .Replace(HostPlaceholder, host, StringComparison.OrdinalIgnoreCase)
-            .Replace(PortPlaceholder, port.ToString(), StringComparison.OrdinalIgnoreCase);
+    public static string Expand(string commandLine, string host, int port,
+        string? userName = null, string? password = null, string? remoteHost = null) =>
+        // 差し込んだ値に含まれるプレースホルダを再展開しない。
+        Regex.Replace(commandLine, @"\{(host|port|username|password|remotehost)\}", match =>
+            match.Value.ToLowerInvariant() switch
+            {
+                HostPlaceholder => host,
+                PortPlaceholder => port.ToString(CultureInfo.InvariantCulture),
+                UserNamePlaceholder => userName ?? match.Value,
+                PasswordPlaceholder => password ?? match.Value,
+                RemoteHostPlaceholder => remoteHost ?? match.Value,
+                _ => match.Value,
+            }, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     /// <summary>
     /// コマンド行を実行ファイルと引数に分ける。先頭の 1 語を実行ファイルとし、

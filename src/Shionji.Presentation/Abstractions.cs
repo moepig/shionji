@@ -16,6 +16,9 @@ public interface INotificationService
 public interface IClipboardService
 {
     void SetText(string text);
+
+    /// <summary>秘密値をコピーする。OS のクリップボード履歴とデバイス間同期を無効にする。</summary>
+    void SetSensitiveText(string text);
 }
 
 /// <summary>接続先設定の追加 / 編集を別ウィンドウで開く。</summary>

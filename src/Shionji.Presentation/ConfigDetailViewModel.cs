@@ -30,6 +30,9 @@ public sealed partial class ConfigDetailViewModel(
 
     /// <summary>待ち受けているローカル側のポート。確立していなければ null。</summary>
     private int? _localPort;
+    private bool _isRunningCommand;
+    private bool _hasSessionCredentialsError;
+    private ErrorDetail? _rdsIamError;
 
     public Domain.ValueObjects.ConfigId ConfigId { get; } = configId;
 
@@ -120,6 +123,19 @@ public sealed partial class ConfigDetailViewModel(
     [ObservableProperty]
     public partial string? CommandError { get; set; }
 
+    [ObservableProperty]
+    public partial bool HasRdsIamAuthentication { get; set; }
+
+    [ObservableProperty]
+    public partial string RdsIamUserName { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(CopyRdsIamPasswordCommand))]
+    public partial bool CanCopyRdsIamPassword { get; set; }
+
+    [ObservableProperty]
+    public partial string? RdsIamError { get; set; }
+
     public ObservableCollection<string> LogLines { get; } = [];
 
     /// <summary>セッションログ全文。読み取り専用のテキストとして選択・コピーできるようにする。</summary>
@@ -142,10 +158,42 @@ public sealed partial class ConfigDetailViewModel(
             CopyToClipboard(endpoint, "接続先をコピーしました");
     }
 
-    /// <summary>コピーしたことを一時的に知らせる。連続でコピーしても最後の 1 回だけが残る。</summary>
-    private void CopyToClipboard(string text, string confirmation)
+    [RelayCommand(CanExecute = nameof(CanCopyRdsIamPassword))]
+    private async Task CopyRdsIamPasswordAsync()
     {
-        clipboard.SetText(text);
+        if (!CanCopyRdsIamPassword)
+            return;
+
+        var result = await owner.GenerateRdsAuthTokenAsync(ConfigId);
+        SetRdsIamError(result.IsFailure ? result.Error : null);
+        if (result.IsSuccess)
+        {
+            try
+            {
+                CopyToClipboard(result.Value, "IAM 認証パスワードをコピーしました (15 分間有効)", sensitive: true);
+            }
+            catch (Exception)
+            {
+                SetRdsIamError(new ErrorDetail(FailurePhase.DatabaseAuthentication,
+                    "ClipboardFailed", "クリップボードへコピーできませんでした。もう一度実行してください。"));
+            }
+        }
+    }
+
+    private void SetRdsIamError(ErrorDetail? error)
+    {
+        _rdsIamError = error;
+        RdsIamError = error?.Message;
+        CanSsoLogin = _hasSessionCredentialsError || error?.Phase == FailurePhase.Credentials;
+    }
+
+    /// <summary>コピーしたことを一時的に知らせる。連続でコピーしても最後の 1 回だけが残る。</summary>
+    private void CopyToClipboard(string text, string confirmation, bool sensitive = false)
+    {
+        if (sensitive)
+            clipboard.SetSensitiveText(text);
+        else
+            clipboard.SetText(text);
         CopyConfirmationText = confirmation;
         IsCopyConfirmationVisible = true;
 
@@ -170,6 +218,8 @@ public sealed partial class ConfigDetailViewModel(
         {
             if (await owner.SsoLoginAsync(ConfigId) is { } error)
                 ErrorText = $"[{PhaseLabel(error.Phase)}] {error.Message}";
+            else
+                SetRdsIamError(null);
         }
         finally
         {
@@ -193,23 +243,41 @@ public sealed partial class ConfigDetailViewModel(
 
             Commands.Clear();
             foreach (var definition in definitions)
-                Commands.Add(new ExternalCommandViewModel(definition, RunCommand));
+                Commands.Add(new ExternalCommandViewModel(definition, RunCommandAsync));
 
             HasCommands = Commands.Count > 0;
             CommandError = null;
         }
 
-        CanRunCommands = _localPort is not null;
+        UpdateCommandAvailability();
+    }
+
+    private void UpdateCommandAvailability()
+    {
+        CanRunCommands = _localPort is not null && !_isRunningCommand;
         foreach (var command in Commands)
             command.IsEnabled = CanRunCommands;
     }
 
-    private void RunCommand(LaunchCommand command)
+    private async Task RunCommandAsync(LaunchCommand command)
     {
-        if (_localPort is not { } port)
+        if (!CanRunCommands)
             return;
 
-        CommandError = owner.RunExternalCommand(command, LocalHost, port);
+        _isRunningCommand = true;
+        UpdateCommandAvailability();
+        try
+        {
+            var error = await owner.RunExternalCommandAsync(ConfigId, command);
+            CommandError = error?.Message;
+            SetRdsIamError(error?.Phase is FailurePhase.Credentials or FailurePhase.DatabaseAuthentication
+                ? error : null);
+        }
+        finally
+        {
+            _isRunningCommand = false;
+            UpdateCommandAvailability();
+        }
     }
 
     internal void AppendLog(SessionLogEventArgs log)
@@ -265,7 +333,11 @@ public sealed partial class ConfigDetailViewModel(
             : null;
         LocalEndpoint = _localPort is { } listening ? $"{LocalHost}:{listening}" : null;
         ErrorText = ComposeError(state, view);
-        CanSsoLogin = HasCredentialsError(state, view);
+        _hasSessionCredentialsError = HasCredentialsError(state, view);
+        CanSsoLogin = _hasSessionCredentialsError || _rdsIamError?.Phase == FailurePhase.Credentials;
+        HasRdsIamAuthentication = config.RdsIamUserName is not null;
+        RdsIamUserName = config.RdsIamUserName?.Value ?? string.Empty;
+        CanCopyRdsIamPassword = HasRdsIamAuthentication && _localPort is not null;
 
         Candidates.Clear();
         foreach (var candidate in CollectCandidates(view))
@@ -349,6 +421,7 @@ public sealed partial class ConfigDetailViewModel(
         FailurePhase.ResolveGateway => "踏み台の自動検索",
         FailurePhase.StartSession => "セッション開始",
         FailurePhase.Plugin => "plugin",
+        FailurePhase.DatabaseAuthentication => "RDS IAM 認証",
         _ => phase.ToString(),
     };
 

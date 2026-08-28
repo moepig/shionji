@@ -26,6 +26,10 @@ public sealed class ConfigDto
     public bool AutoReconnect { get; set; }
     public bool ConnectOnLaunch { get; set; }
 
+    /// <summary>RDS IAM 認証を使用する場合の DB ユーザー名のみ。未指定なら従来の動作。</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? RdsIamUserName { get; set; }
+
     /// <summary>接続中に実行できるコマンド。並びがそのままボタンの並びになる。</summary>
     public List<CommandDto> Commands { get; set; } = [];
 }

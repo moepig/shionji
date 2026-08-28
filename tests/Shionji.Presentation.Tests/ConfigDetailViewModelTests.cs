@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+using Shionji.Domain.Configuration;
 using Shionji.Domain.Resolution;
 using Shionji.TestSupport;
 
@@ -5,6 +7,184 @@ namespace Shionji.Presentation.Tests;
 
 public class ConfigDetailViewModelTests
 {
+    private static async Task AssertSecretNotLogged(UiHarness ui, string secret)
+    {
+        var written = ui.App.Written;
+        var text = string.Join("\n", written.Select(log => log.Summary)
+            .Concat(written.SelectMany(log => log.Details.Values))
+            .Concat(written.Select(log => log.Exception?.ToString() ?? string.Empty))
+            .Concat(ui.App.Activity.Recent.Select(entry => entry.Message)));
+        await Assert.That(text.Contains(secret, StringComparison.Ordinal)).IsFalse();
+    }
+
+    [Test]
+    public async Task 接続後に実際のDB接続先で毎回新しいトークンをコピーする()
+    {
+        var ui = new UiHarness();
+        await ui.App.Configs.SaveAsync(TestData.StaticConfig(rdsIamUserName: "App_User"));
+        ui.Main.SelectedRow = ui.Main.Rows[0];
+        var detail = (ConfigDetailViewModel)ui.Main.DetailContent!;
+        await Assert.That(detail.HasRdsIamAuthentication).IsTrue();
+        await Assert.That(detail.CopyRdsIamPasswordCommand.CanExecute(null)).IsFalse();
+        await detail.CopyRdsIamPasswordCommand.ExecuteAsync(null);
+        await Assert.That(ui.RdsAuthTokens.Requests).IsEmpty();
+
+        await detail.ConnectCommand.ExecuteAsync(null);
+        await Assert.That(ui.RdsAuthTokens.Requests).IsEmpty();
+        await Assert.That(ui.RdsAuthLogs).IsEmpty();
+        await detail.CopyRdsIamPasswordCommand.ExecuteAsync(null);
+        await Assert.That(ui.Clipboard.LastText).IsEqualTo("test-token-1");
+        await detail.CopyRdsIamPasswordCommand.ExecuteAsync(null);
+        await Assert.That(ui.Clipboard.LastText).IsEqualTo("test-token-2");
+        await Assert.That(ui.Clipboard.SensitiveWrites).IsEqualTo(2);
+        await Assert.That(ui.RdsAuthTokens.Requests[0]).IsEqualTo(
+            (TestData.Aws(), "db.example.internal", 5432, "App_User"));
+        await Assert.That(detail.CopyConfirmationText).Contains("15 分");
+
+        var logs = ui.RdsAuthLogs;
+        await Assert.That(string.Join(",", logs.Select(log => log.Detail("result"))))
+            .IsEqualTo("Started,Succeeded,Started,Succeeded");
+        foreach (var log in logs)
+        {
+            await Assert.That(log.Level).IsEqualTo(LogLevel.Information);
+            await Assert.That(log.Detail("destination")).IsEqualTo("db.example.internal:5432");
+            await Assert.That(log.Detail("profile")).IsEqualTo("dev@ap-northeast-1");
+            await Assert.That(log.Detail("config")).IsEqualTo("test");
+            await Assert.That(log.Detail("dbUser")).IsEqualTo("App_User");
+        }
+        await Assert.That(Guid.TryParse(logs[0].Detail("authAttempt"), out _)).IsTrue();
+        await Assert.That(logs[0].Detail("authAttempt")).IsEqualTo(logs[1].Detail("authAttempt"));
+        await Assert.That(logs[2].Detail("authAttempt")).IsEqualTo(logs[3].Detail("authAttempt"));
+        await Assert.That(logs[0].Detail("authAttempt")).IsNotEqualTo(logs[2].Detail("authAttempt"));
+        await Assert.That(ui.Main.StatusText).IsEqualTo(logs[3].Summary);
+        await AssertSecretNotLogged(ui, "test-token");
+
+        await detail.DisconnectCommand.ExecuteAsync(null);
+        await Assert.That(detail.CopyRdsIamPasswordCommand.CanExecute(null)).IsFalse();
+    }
+
+    [Test]
+    [Arguments(AuroraEndpointRole.Writer, null)]
+    [Arguments(AuroraEndpointRole.Reader, null)]
+    [Arguments(AuroraEndpointRole.Reader, 3306)]
+    public async Task Auroraの選択したエンドポイントと実際の転送先ポートを署名に使う(
+        AuroraEndpointRole role, int? port)
+    {
+        var ui = new UiHarness();
+        var host = role == AuroraEndpointRole.Reader ? "reader.rds.amazonaws.com" : "writer.rds.amazonaws.com";
+        ui.App.Catalog.Handler = (_, query) => new ResolutionOutcome.Resolved(
+            TestData.Resource(host: ((AuroraQuery)query).Role == role ? host : "wrong", defaultPort: 5432));
+        await ui.App.Configs.SaveAsync(TestData.AuroraConfig(role, port));
+        ui.Main.SelectedRow = ui.Main.Rows[0];
+        var detail = (ConfigDetailViewModel)ui.Main.DetailContent!;
+        await detail.ConnectCommand.ExecuteAsync(null);
+
+        // 接続中に検索結果だけ更新されても、現在のトンネルが指す DB で署名する。
+        ui.App.Catalog.Handler = (_, _) => new ResolutionOutcome.Resolved(
+            TestData.Resource(host: "next.rds.amazonaws.com", defaultPort: 9999));
+        await detail.RefreshResolutionCommand.ExecuteAsync(null);
+        await detail.CopyRdsIamPasswordCommand.ExecuteAsync(null);
+
+        await Assert.That(ui.RdsAuthTokens.Requests.Single()).IsEqualTo(
+            (TestData.Aws(), host, port ?? 5432, "App_User"));
+        await Assert.That(ui.RdsAuthLogs.Last().Detail("destination")).IsEqualTo($"{host}:{port ?? 5432}");
+    }
+
+    [Test]
+    public async Task トークン取得中の再接続では古い結果をコピーしない()
+    {
+        var ui = new UiHarness();
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        ui.RdsAuthTokens.Gate = () => gate.Task;
+        await ui.App.Configs.SaveAsync(TestData.StaticConfig(rdsIamUserName: "app"));
+        ui.Main.SelectedRow = ui.Main.Rows[0];
+        var detail = (ConfigDetailViewModel)ui.Main.DetailContent!;
+        await detail.ConnectCommand.ExecuteAsync(null);
+        var copy = detail.CopyRdsIamPasswordCommand.ExecuteAsync(null);
+        // 取得中の時点で開始ログが見え、完了ログはまだ出ていない。
+        await Assert.That(ui.RdsAuthLogs.Single().Detail("result")).IsEqualTo("Started");
+        await detail.DisconnectCommand.ExecuteAsync(null);
+        await detail.ConnectCommand.ExecuteAsync(null);
+        gate.SetResult();
+        await copy;
+
+        await Assert.That(ui.Clipboard.LastText).IsNull();
+        await Assert.That(detail.RdsIamError!).Contains("接続状態");
+        await Assert.That(string.Join(",", ui.RdsAuthLogs.Select(log => log.Detail("result"))))
+            .IsEqualTo("Started,Failed");
+        await Assert.That(ui.RdsAuthLogs.Last().Detail("code")).IsEqualTo("ConnectionChanged");
+        await AssertSecretNotLogged(ui, "test-token");
+    }
+
+    [Test]
+    public async Task IAM認証の資格情報エラーからSSOログインして再生成できる()
+    {
+        var ui = new UiHarness();
+        ui.RdsAuthTokens.Error = new ErrorDetail(FailurePhase.Credentials, "SsoLoginRequired", "SSO ログインが必要です。");
+        await ui.App.Configs.SaveAsync(TestData.StaticConfig(rdsIamUserName: "app"));
+        ui.Main.SelectedRow = ui.Main.Rows[0];
+        var detail = (ConfigDetailViewModel)ui.Main.DetailContent!;
+        await detail.ConnectCommand.ExecuteAsync(null);
+        await detail.CopyRdsIamPasswordCommand.ExecuteAsync(null);
+        await Assert.That(detail.CanSsoLogin).IsTrue();
+        await Assert.That(ui.Clipboard.LastText).IsNull();
+
+        ui.SsoLogin.OnLogin = () => ui.RdsAuthTokens.Error = null;
+        await detail.SsoLoginCommand.ExecuteAsync(null);
+        await detail.CopyRdsIamPasswordCommand.ExecuteAsync(null);
+        await Assert.That(ui.Clipboard.LastText).IsEqualTo("test-token-2");
+        await Assert.That(detail.RdsIamError).IsNull();
+        await Assert.That(detail.CanSsoLogin).IsFalse();
+    }
+
+    [Test]
+    public async Task トークン取得時の予期しない例外は秘密を表示しない()
+    {
+        var ui = new UiHarness();
+        ui.RdsAuthTokens.Gate = () => throw new InvalidOperationException("secret-token");
+        await ui.App.Configs.SaveAsync(TestData.StaticConfig(rdsIamUserName: "app"));
+        ui.Main.SelectedRow = ui.Main.Rows[0];
+        var detail = (ConfigDetailViewModel)ui.Main.DetailContent!;
+        await detail.ConnectCommand.ExecuteAsync(null);
+        await detail.CopyRdsIamPasswordCommand.ExecuteAsync(null);
+        await Assert.That(detail.RdsIamError!.Contains("secret-token", StringComparison.Ordinal)).IsFalse();
+        await Assert.That(ui.Clipboard.LastText).IsNull();
+        var failed = ui.RdsAuthLogs.Last();
+        await Assert.That(failed.Level).IsEqualTo(LogLevel.Error);
+        await Assert.That(failed.Detail("code")).IsEqualTo("TokenGenerationFailed");
+        await Assert.That(failed.Exception).IsNull();
+        await AssertSecretNotLogged(ui, "secret-token");
+    }
+
+    [Test]
+    [Arguments(FailurePhase.Credentials, "SsoLoginRequired")]
+    [Arguments(FailurePhase.Permission, "AccessDenied")]
+    [Arguments(FailurePhase.DatabaseAuthentication, "TokenGenerationFailed")]
+    public async Task 取得失敗のログにはコードを残し理由本文は含めない(FailurePhase phase, string code)
+    {
+        var ui = new UiHarness();
+        ui.RdsAuthTokens.Error = new ErrorDetail(phase, code, "取得失敗: secret-token");
+        await ui.App.Configs.SaveAsync(TestData.StaticConfig(rdsIamUserName: "app"));
+        ui.Main.SelectedRow = ui.Main.Rows[0];
+        var detail = (ConfigDetailViewModel)ui.Main.DetailContent!;
+        await detail.ConnectCommand.ExecuteAsync(null);
+        await detail.CopyRdsIamPasswordCommand.ExecuteAsync(null);
+
+        var logs = ui.RdsAuthLogs;
+        await Assert.That(string.Join(",", logs.Select(log => log.Detail("result"))))
+            .IsEqualTo("Started,Failed");
+        var failed = logs[1];
+        await Assert.That(failed.Level).IsEqualTo(LogLevel.Error);
+        await Assert.That(failed.Detail("destination")).IsEqualTo("db.example.internal:5432");
+        await Assert.That(failed.Detail("phase")).IsEqualTo(phase.ToString());
+        await Assert.That(failed.Detail("code")).IsEqualTo(code);
+        await Assert.That(failed.Detail("authAttempt")).IsEqualTo(logs[0].Detail("authAttempt"));
+        await Assert.That(failed.Exception).IsNull();
+        await Assert.That(ui.Main.StatusText).IsEqualTo(failed.Summary);
+        await Assert.That(ui.Main.StatusSeverity).IsEqualTo(Shionji.Application.ActivitySeverity.Error);
+        await AssertSecretNotLogged(ui, "secret-token");
+    }
+
     [Test]
     public async Task 各項目が個別に取り出せる()
     {

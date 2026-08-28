@@ -89,6 +89,18 @@
                 </StackPanel>
             </Grid>
 
+            <StackPanel Spacing="6"
+                        Visibility="{Binding HasRdsIamAuthentication, Converter={StaticResource BoolToVis}}">
+                <TextBlock Text="RDS IAM 認証" Style="{StaticResource SectionHeadingStyle}" />
+                <TextBlock Text="{Binding RdsIamUserName}" IsTextSelectionEnabled="True" />
+                <Button Content="IAM 認証パスワードをコピー"
+                        Command="{Binding CopyRdsIamPasswordCommand}" />
+                <TextBlock Text="接続中に生成できます。トークンは 15 分間有効です。DB クライアントでは TLS を有効にしてください。"
+                           TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}" />
+                <TextBlock Text="{Binding RdsIamError}" TextWrapping="Wrap" Foreground="IndianRed"
+                           Visibility="{Binding RdsIamError, Converter={StaticResource NullToVis}}" />
+            </StackPanel>
+
             <TextBlock Text="状態" Style="{StaticResource SectionHeadingStyle}" />
             <Grid ColumnSpacing="12" RowSpacing="6">
                 <Grid.ColumnDefinitions>

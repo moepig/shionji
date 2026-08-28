@@ -122,6 +122,15 @@
                           IsChecked="{Binding DestPickFirst, Mode=TwoWay}"
                           Visibility="{Binding IsQueryDestination, Converter={StaticResource BoolToVis}}" />
 
+                <StackPanel Spacing="6"
+                            Visibility="{Binding CanUseRdsIamAuthentication, Converter={StaticResource BoolToVis}}">
+                    <TextBlock Text="RDS IAM 認証" Style="{StaticResource FormSectionStyle}" />
+                    <TextBox Header="DB ユーザー名 (空 = IAM 認証を使用しない)"
+                             Text="{Binding RdsIamUserName, Mode=TwoWay}" />
+                    <TextBlock Text="Aurora / RDS 用。パスワードは保存せず、接続中に必要な都度トークンを生成します。直接指定では実際の RDS エンドポイントを入力してください。"
+                               TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}" />
+                </StackPanel>
+
                 <TextBlock Text="経路 (踏み台)" Style="{StaticResource FormSectionStyle}" />
                 <ComboBox Header="経路の種別" MinWidth="240"
                           SelectedIndex="{Binding GatewayKind, Mode=TwoWay, Converter={StaticResource EnumIndex}, ConverterParameter=GatewayKind}">

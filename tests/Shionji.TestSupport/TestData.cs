@@ -39,7 +39,8 @@ public static class TestData
         bool connectOnLaunch = false,
         int localPort = 15432,
         string name = "test",
-        IReadOnlyList<LaunchCommand>? commands = null) =>
+        IReadOnlyList<LaunchCommand>? commands = null,
+        string? rdsIamUserName = null) =>
         ForwardingConfig.Create(
             ConfigId.New(),
             ConfigName.Create(name).Value,
@@ -48,7 +49,21 @@ public static class TestData
             new Destination.Static(Host("db.example.internal"), Port(5432)),
             new GatewaySpec.Ec2(new Ec2Selector.ById(InstanceId.Create("i-0123456789abcdef0").Value)),
             new ConfigOptions(autoReconnect, connectOnLaunch),
-            commands is null ? null : LaunchCommands.From(commands)).Value;
+            commands is null ? null : LaunchCommands.From(commands),
+            rdsIamUserName is null ? null : DatabaseUserName.Create(rdsIamUserName).Value).Value;
+
+    public static ForwardingConfig AuroraConfig(
+        AuroraEndpointRole role = AuroraEndpointRole.Writer,
+        int? remotePort = null,
+        IReadOnlyList<LaunchCommand>? commands = null) =>
+        ForwardingConfig.Create(
+            ConfigId.New(), ConfigName.Create("aurora").Value, Aws(), LocalPortSpec.Auto.Instance,
+            new Destination.Query(new AuroraQuery(null, TagFilters.Empty, MatchPolicy.RequireSingle, role),
+                remotePort is { } port ? new PortSelection.Explicit(Port(port)) : PortSelection.FromResource.Instance),
+            new GatewaySpec.Ec2(new Ec2Selector.ById(InstanceId.Create("i-0123456789abcdef0").Value)),
+            ConfigOptions.Default,
+            commands is null ? null : LaunchCommands.From(commands),
+            DatabaseUserName.Create("App_User").Value).Value;
 
     /// <summary>EC2 クエリ転送先 + 経路 Direct の設定 (踏み台自身へ転送)。</summary>
     public static ForwardingConfig DirectEc2Config(string name = "batch", int localPort = 12222) =>

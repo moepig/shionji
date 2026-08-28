@@ -95,6 +95,7 @@ public partial class App : Microsoft.UI.Xaml.Application
         {
             services.AddSingleton<FakeSsoState>();
             services.AddSingleton<IResourceCatalog, FakeResourceCatalog>();
+            services.AddSingleton<IRdsAuthTokenProvider, FakeRdsAuthTokenProvider>();
             services.AddSingleton<ITunnelLauncher, FakeTunnelLauncher>();
             services.AddSingleton<ISsoLoginService, FakeSsoLoginService>();
             services.AddSingleton<IForwardingConfigRepository>(
@@ -104,6 +105,7 @@ public partial class App : Microsoft.UI.Xaml.Application
         {
             services.AddSingleton(new AwsClientFactory(settingsStore.Current.AwsEndpointOverride));
             services.AddSingleton<IResourceCatalog, AwsResourceCatalog>();
+            services.AddSingleton<IRdsAuthTokenProvider, RdsAuthTokenProvider>();
             services.AddSingleton(new SessionManagerPluginLocator(() => settingsStore.Current.PluginPath));
             services.AddSingleton<ITunnelLauncher, SessionManagerPluginLauncher>();
             services.AddSingleton<ISsoLoginService>(_ => new SsoLoginService());

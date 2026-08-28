@@ -7,7 +7,7 @@ namespace Shionji.Presentation;
 /// <summary>詳細ペインに並ぶ、接続先設定に登録されたコマンドのボタン 1 個分。</summary>
 public sealed partial class ExternalCommandViewModel(
     LaunchCommand definition,
-    Action<LaunchCommand> run) : ObservableObject
+    Func<LaunchCommand, Task> run) : ObservableObject
 {
     public LaunchCommand Definition { get; } = definition;
 
@@ -18,8 +18,9 @@ public sealed partial class ExternalCommandViewModel(
 
     /// <summary>実行できる状態か。接続していないと差し込む値が決まらない。</summary>
     [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(RunCommand))]
     public partial bool IsEnabled { get; set; }
 
-    [RelayCommand]
-    private void Run() => run(Definition);
+    [RelayCommand(CanExecute = nameof(IsEnabled))]
+    private Task RunAsync() => run(Definition);
 }

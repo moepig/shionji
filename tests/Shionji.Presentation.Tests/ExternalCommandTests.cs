@@ -6,6 +6,108 @@ namespace Shionji.Presentation.Tests;
 public class ExternalCommandTests
 {
     [Test]
+    public async Task IAM認証コマンドには実行ごとに新しいパスワードを渡す()
+    {
+        var ui = new UiHarness();
+        await ui.App.Configs.SaveAsync(TestData.AuroraConfig(commands:
+            [TestData.Command("psql \"host={remotehost} hostaddr=127.0.0.1 port={port} user={username} password={password} sslmode=verify-full\"", "DB")]));
+        ui.Main.SelectedRow = ui.Main.Rows[0];
+        var detail = (ConfigDetailViewModel)ui.Main.DetailContent!;
+        await detail.ConnectCommand.ExecuteAsync(null);
+
+        await detail.Commands[0].RunCommand.ExecuteAsync(null);
+        await detail.Commands[0].RunCommand.ExecuteAsync(null);
+
+        await Assert.That(ui.CommandLauncher.Launched[0].Arguments).IsEqualTo(
+            "\"host=cluster.rds.example.com hostaddr=127.0.0.1 port=50000 user=App_User password=test-token-1 sslmode=verify-full\"");
+        await Assert.That(ui.CommandLauncher.Launched[1].Arguments).Contains("password=test-token-2");
+        await Assert.That(detail.Commands[0].CommandLine).Contains("{password}");
+        await Assert.That(ui.App.Activity.Recent.Any(e => e.Message.Contains("test-token", StringComparison.Ordinal))).IsFalse();
+        var logs = ui.RdsAuthLogs;
+        await Assert.That(string.Join(",", logs.Select(log => log.Detail("result"))))
+            .IsEqualTo("Started,Succeeded,Started,Succeeded");
+        await Assert.That(logs.Last().Detail("destination")).IsEqualTo("cluster.rds.example.com:5432");
+        await Assert.That(logs.SelectMany(log => log.Details.Values)
+            .Any(value => value.Contains("test-token", StringComparison.Ordinal))).IsFalse();
+    }
+
+    [Test]
+    [Arguments("mysql -u {username}", true)]
+    [Arguments("mysql -u {username}", false)]
+    [Arguments("mysql -p{password}", false)]
+    public async Task ユーザー名のみでは署名せず未設定なら起動を拒否する(string command, bool configured)
+    {
+        var ui = new UiHarness();
+        await ui.App.Configs.SaveAsync(TestData.StaticConfig(
+            rdsIamUserName: configured ? "app" : null, commands: [TestData.Command(command)]));
+        ui.Main.SelectedRow = ui.Main.Rows[0];
+        var detail = (ConfigDetailViewModel)ui.Main.DetailContent!;
+        await detail.ConnectCommand.ExecuteAsync(null);
+        await detail.Commands[0].RunCommand.ExecuteAsync(null);
+
+        await Assert.That(ui.RdsAuthTokens.Requests).IsEmpty();
+        await Assert.That(ui.RdsAuthLogs).IsEmpty();
+        await Assert.That(ui.CommandLauncher.Launched.Count).IsEqualTo(configured ? 1 : 0);
+        if (!configured)
+            await Assert.That(detail.CommandError!).Contains("DB ユーザー名");
+    }
+
+    [Test]
+    public async Task トークン取得中に切断したらコマンドを起動しない()
+    {
+        var ui = new UiHarness();
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        ui.RdsAuthTokens.Gate = () => gate.Task;
+        await ui.App.Configs.SaveAsync(TestData.StaticConfig(rdsIamUserName: "app",
+            commands: [TestData.Command("mysql --password={password}")]));
+        ui.Main.SelectedRow = ui.Main.Rows[0];
+        var detail = (ConfigDetailViewModel)ui.Main.DetailContent!;
+        await detail.ConnectCommand.ExecuteAsync(null);
+        var run = detail.Commands[0].RunCommand.ExecuteAsync(null);
+        await detail.DisconnectCommand.ExecuteAsync(null);
+        gate.SetResult();
+        await run;
+
+        await Assert.That(ui.CommandLauncher.Launched).IsEmpty();
+        await Assert.That(detail.CommandError!).Contains("接続状態");
+    }
+
+    [Test]
+    public async Task 起動エラーに展開済みトークンを含めない()
+    {
+        var ui = new UiHarness();
+        ui.CommandLauncher.Error = "failed with password=test-token-1";
+        await ui.App.Configs.SaveAsync(TestData.StaticConfig(rdsIamUserName: "app",
+            commands: [TestData.Command("mysql --password={password}")]));
+        ui.Main.SelectedRow = ui.Main.Rows[0];
+        var detail = (ConfigDetailViewModel)ui.Main.DetailContent!;
+        await detail.ConnectCommand.ExecuteAsync(null);
+        await detail.Commands[0].RunCommand.ExecuteAsync(null);
+        await Assert.That(detail.CommandError!.Contains("test-token", StringComparison.Ordinal)).IsFalse();
+    }
+
+    [Test]
+    public async Task トークン生成に失敗したら起動せずSSOログインを提示する()
+    {
+        var ui = new UiHarness();
+        ui.RdsAuthTokens.Error = TestData.Error(Shionji.Domain.Resolution.FailurePhase.Credentials);
+        await ui.App.Configs.SaveAsync(TestData.StaticConfig(rdsIamUserName: "app",
+            commands: [TestData.Command("mysql --password={password}")]));
+        ui.Main.SelectedRow = ui.Main.Rows[0];
+        var detail = (ConfigDetailViewModel)ui.Main.DetailContent!;
+        await detail.ConnectCommand.ExecuteAsync(null);
+        await detail.Commands[0].RunCommand.ExecuteAsync(null);
+
+        await Assert.That(ui.CommandLauncher.Launched).IsEmpty();
+        await Assert.That(detail.CanSsoLogin).IsTrue();
+        await Assert.That(detail.CommandError).IsEqualTo(ui.RdsAuthTokens.Error.Message);
+        await Assert.That(detail.CanRunCommands).IsTrue();
+        var failed = ui.RdsAuthLogs.Last();
+        await Assert.That(failed.Detail("result")).IsEqualTo("Failed");
+        await Assert.That(failed.Detail("code")).IsEqualTo("TestError");
+    }
+
+    [Test]
     public async Task 登録が無ければ節ごと出さない()
     {
         var ui = new UiHarness();
