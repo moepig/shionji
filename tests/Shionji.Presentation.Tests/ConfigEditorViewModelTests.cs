@@ -267,6 +267,7 @@ public class ConfigEditorViewModelTests
         source.Region = "us-west-2";
         source.LocalPortText = destination == DestinationKind.Static ? "25432" : string.Empty;
         source.DestinationKind = destination;
+        source.RdsIamUserName = source.CanUseRdsIamAuthentication ? "App_User" : string.Empty;
         source.DestPortText = source.IsCacheDestination || source.IsAuroraDestination ? string.Empty : "5432";
         source.DestNamePattern = "prod-*";
         source.DestPickFirst = true;
@@ -298,7 +299,7 @@ public class ConfigEditorViewModelTests
         var expected = ForwardingConfig.Create(
             copy.Id, ConfigName.Create(original.Name.Value + " copy").Value,
             original.Aws, original.LocalPort, original.Destination, original.Gateway,
-            original.Options, original.Commands).Value;
+            original.Options, original.Commands, original.RdsIamUserName).Value;
         await Assert.That(copy).IsEqualTo(expected);
 
         // 入力行はコピー元と共有せず、変更や削除をしても元の内容を変えない。
