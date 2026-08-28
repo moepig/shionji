@@ -17,6 +17,7 @@ public sealed partial class MainWindow : Window
     private readonly TunnelSupervisor _supervisor;
     private readonly AppSettingsStore _settings;
     private readonly ThemeHost _themeHost;
+    private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer _authenticationTimer;
     private TaskbarIcon? _trayIcon;
     private bool _exiting;
 
@@ -36,6 +37,7 @@ public sealed partial class MainWindow : Window
         RootGrid.DataContext = _viewModel;
         // Flyout の中身は視覚ツリーの外に置かれるため DataContext を明示する
         ActivityPanel.DataContext = _viewModel;
+        AuthenticationDetailsPanel.DataContext = _viewModel.Authentication;
 
         this.ApplyAppIcon();
         AppWindow.Resize(new Windows.Graphics.SizeInt32(1080, 720));
@@ -47,6 +49,17 @@ public sealed partial class MainWindow : Window
         _themeHost.Register(this);
 
         SetupTrayIcon();
+
+        _authenticationTimer = DispatcherQueue.CreateTimer();
+        _authenticationTimer.Interval = TimeSpan.FromMinutes(1);
+        _authenticationTimer.Tick += (_, _) => _ = _viewModel.Authentication.RefreshCommand.ExecuteAsync(null);
+        _authenticationTimer.Start();
+        Activated += (_, args) =>
+        {
+            if (args.WindowActivationState != WindowActivationState.Deactivated)
+                _ = _viewModel.Authentication.RefreshCommand.ExecuteAsync(null);
+        };
+        _ = _viewModel.Authentication.StartAsync();
 
         var startup = services.GetRequiredService<StartupService>();
         _ = RunStartupAsync(startup);
@@ -223,6 +236,8 @@ public sealed partial class MainWindow : Window
             return;
 
         _exiting = true;
+        _authenticationTimer.Stop();
+        await _viewModel.Authentication.StopAsync();
 
         // 先にトレイから消す。畳んでいる間にもう一度「終了」を押せてしまうのを防ぐ
         _trayIcon?.Dispose();

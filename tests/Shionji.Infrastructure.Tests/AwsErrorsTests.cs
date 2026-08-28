@@ -51,6 +51,16 @@ public class AwsErrorsTests
     }
 
     [Test]
+    public async Task ログイントークンの欠落は内側の例外でも資格情報エラーになる()
+    {
+        var error = AwsErrors.Classify(
+            new AmazonClientException("wrapper", new AmazonClientException("No valid Login Token could be found.")),
+            FailurePhase.ResolveDestination, Profile(), isSsoProfile: false);
+
+        await Assert.That(error.Phase).IsEqualTo(FailurePhase.Credentials);
+    }
+
+    [Test]
     public async Task アクセス拒否はPermissionに分類される()
     {
         var exception = new AmazonServiceException(

@@ -66,6 +66,32 @@ public class RdsAuthTokenProviderTests
     }
 
     [Test]
+    [NotInParallel]
+    public async Task regionのないログインプロファイルでもキャッシュ切れを認証エラーに分類する()
+    {
+        using var dir = new TempDir();
+        var original = Environment.GetEnvironmentVariable("AWS_LOGIN_CACHE_DIRECTORY");
+        Environment.SetEnvironmentVariable("AWS_LOGIN_CACHE_DIRECTORY", dir.Path);
+        try
+        {
+            var path = dir.File("credentials");
+            await File.WriteAllTextAsync(path,
+                "[database]\nlogin_session = arn:aws:iam::000000000000:user/shionji-test\n");
+            var provider = new RdsAuthTokenProvider(new AwsClientFactory(profilesLocation: path));
+
+            var result = await provider.GenerateAsync(Aws(), HostName.Create(Host).Value,
+                Port.Create(5432).Value, DatabaseUserName.Create("app").Value);
+
+            await Assert.That(result.Error.Phase).IsEqualTo(FailurePhase.Credentials);
+            await Assert.That(result.Error.Code).IsEqualTo("CredentialsInvalid");
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("AWS_LOGIN_CACHE_DIRECTORY", original);
+        }
+    }
+
+    [Test]
     public async Task デモでは実際のトークンを生成しない()
     {
         var result = await new FakeRdsAuthTokenProvider().GenerateAsync(Aws(), HostName.Create(Host).Value,

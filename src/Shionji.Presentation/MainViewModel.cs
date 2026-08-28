@@ -36,6 +36,8 @@ public sealed partial class MainViewModel : ObservableObject
 
     public ObservableCollection<ConfigRowViewModel> Rows { get; } = [];
 
+    public AwsAuthenticationViewModel Authentication { get; }
+
     /// <summary>接続中 (接続処理中を含む) の件数。終了の確認で、何が切れるかを示すのに使う。</summary>
     public int ConnectedCount => Rows.Count(row => row.IsConnected);
 
@@ -95,6 +97,8 @@ public sealed partial class MainViewModel : ObservableObject
         AppSettingsContext appSettings,
         IExternalCommandLauncher commandLauncher,
         IRdsAuthTokenProvider rdsAuthTokens,
+        IAwsAuthenticationService authenticationService,
+        ILogger<AwsAuthenticationViewModel> authenticationLogger,
         ILogger<MainViewModel>? logger = null)
     {
         _configService = configService;
@@ -112,6 +116,7 @@ public sealed partial class MainViewModel : ObservableObject
         _commandLauncher = commandLauncher;
         _rdsAuthTokens = rdsAuthTokens;
         _log = logger ?? NullLogger<MainViewModel>.Instance;
+        Authentication = new AwsAuthenticationViewModel(authenticationService, authenticationLogger, dispatcher);
 
         foreach (var entry in activityLog.Recent)
             AppendActivity(entry);
@@ -129,6 +134,7 @@ public sealed partial class MainViewModel : ObservableObject
 
     partial void OnSelectedRowChanged(ConfigRowViewModel? value)
     {
+        Authentication.SetContext(value is null ? null : _configService.Find(value.ConfigId)?.Aws);
         if (value is null)
         {
             if (DetailContent is ConfigDetailViewModel)
@@ -303,6 +309,7 @@ public sealed partial class MainViewModel : ObservableObject
         }
 
         ConfigsHeader = $"接続先設定 ({Rows.Count})";
+        Authentication.SetContext(SelectedRow is null ? null : _configService.Find(SelectedRow.ConfigId)?.Aws);
     }
 
     private void OnSessionChanged(SessionChangedEventArgs e)

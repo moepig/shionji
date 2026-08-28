@@ -24,6 +24,10 @@ public partial class App : Microsoft.UI.Xaml.Application
 
     public App()
     {
+        // aws login の BROWSER コールバック。ブラウザは CLI 出力を読んだ親が開く。
+        // 通常起動の処理（設定・単一起動・ウィンドウ作成）へ進めない。
+        if (Environment.GetCommandLineArgs().Skip(1).FirstOrDefault() == AwsAuthenticationService.BrowserHandledArgument)
+            Environment.Exit(0);
         InitializeComponent();
     }
 
@@ -98,6 +102,7 @@ public partial class App : Microsoft.UI.Xaml.Application
             services.AddSingleton<IRdsAuthTokenProvider, FakeRdsAuthTokenProvider>();
             services.AddSingleton<ITunnelLauncher, FakeTunnelLauncher>();
             services.AddSingleton<ISsoLoginService, FakeSsoLoginService>();
+            services.AddSingleton<IAwsAuthenticationService, FakeAwsAuthenticationService>();
             services.AddSingleton<IForwardingConfigRepository>(
                 _ => new InMemoryConfigRepository([.. DemoData.Configs()]));
         }
@@ -109,6 +114,8 @@ public partial class App : Microsoft.UI.Xaml.Application
             services.AddSingleton(new SessionManagerPluginLocator(() => settingsStore.Current.PluginPath));
             services.AddSingleton<ITunnelLauncher, SessionManagerPluginLauncher>();
             services.AddSingleton<ISsoLoginService>(_ => new SsoLoginService());
+            services.AddSingleton<IAwsAuthenticationService>(sp => new AwsAuthenticationService(
+                sp.GetRequiredService<AwsClientFactory>(), Environment.ProcessPath!));
             services.AddSingleton<IForwardingConfigRepository>(sp =>
                 new JsonForwardingConfigRepository(
                     AppPaths.ResolveConfigsFilePath(settings),

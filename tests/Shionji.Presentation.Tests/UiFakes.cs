@@ -162,6 +162,31 @@ internal sealed class FakeSsoLogin : Shionji.Domain.Ports.ISsoLoginService
     }
 }
 
+internal sealed class FakeAwsAuthentication : Shionji.Domain.Ports.IAwsAuthenticationService
+{
+    public List<Shionji.Domain.ValueObjects.AwsContext> Logins { get; } = [];
+    public List<Shionji.Domain.ValueObjects.AwsContext> Checks { get; } = [];
+    public Shionji.Domain.Ports.AwsAuthenticationStatus Status { get; set; } =
+        new(Shionji.Domain.Ports.AwsAuthenticationState.NotAuthenticated, "未認証");
+    public Func<CancellationToken, Task<Shionji.Domain.Resolution.ErrorDetail?>>? LoginHandler { get; set; }
+    public Func<CancellationToken, Task<Shionji.Domain.Ports.AwsAuthenticationStatus>>? CheckHandler { get; set; }
+
+    public Task<Shionji.Domain.Resolution.ErrorDetail?> LoginAsync(
+        Shionji.Domain.ValueObjects.AwsContext aws, IProgress<Shionji.Domain.Ports.AwsLoginProgress> progress, CancellationToken cancellationToken = default)
+    {
+        Logins.Add(aws);
+        progress.Report(new(Shionji.Domain.Ports.AwsLoginStage.WaitingForApproval));
+        return LoginHandler?.Invoke(cancellationToken) ?? Task.FromResult<Shionji.Domain.Resolution.ErrorDetail?>(null);
+    }
+
+    public Task<Shionji.Domain.Ports.AwsAuthenticationStatus> GetStatusAsync(
+        Shionji.Domain.ValueObjects.AwsContext aws, CancellationToken cancellationToken = default)
+    {
+        Checks.Add(aws);
+        return CheckHandler?.Invoke(cancellationToken) ?? Task.FromResult(Status);
+    }
+}
+
 /// <summary>Application ハーネス + UI フェイクで MainViewModel を組み立てる。</summary>
 internal sealed class UiHarness
 {
@@ -169,6 +194,7 @@ internal sealed class UiHarness
     public RecordingNotificationService Notifications { get; } = new();
     public FakeClipboard Clipboard { get; } = new();
     public FakeSsoLogin SsoLogin { get; } = new();
+    public FakeAwsAuthentication Authentication { get; } = new();
     public FakeFileLocation FileLocation { get; } = new();
     public FakeEditorWindow EditorWindow { get; } = new();
     public FakeAppSettings AppSettings { get; } = new();
@@ -204,6 +230,8 @@ internal sealed class UiHarness
             new AppSettingsContext(AppSettings, FolderPicker, SettingsWindow),
             CommandLauncher,
             RdsAuthTokens,
+            Authentication,
+            App.LoggerFor<AwsAuthenticationViewModel>(),
             App.LoggerFor<MainViewModel>());
     }
 }

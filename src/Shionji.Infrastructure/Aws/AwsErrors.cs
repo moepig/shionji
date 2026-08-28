@@ -66,6 +66,10 @@ public static class AwsErrors
             if (type.Name.Contains("SSOToken", StringComparison.OrdinalIgnoreCase))
                 return true;
 
+            // LoginTokenManager はキャッシュの欠落・失効をこの SDK 例外で通知する。
+            if (e is AmazonClientException && e.Message == "No valid Login Token could be found.")
+                return true;
+
             // 資格情報の無効・期限切れを示す既知のサービスエラーコード
             if (e is AmazonServiceException service &&
                 service.ErrorCode is "ExpiredToken" or "ExpiredTokenException" or "RequestExpired"

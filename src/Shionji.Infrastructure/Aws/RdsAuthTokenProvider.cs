@@ -17,7 +17,7 @@ public sealed class RdsAuthTokenProvider(AwsClientFactory clients) : IRdsAuthTok
         cancellationToken.ThrowIfCancellationRequested();
         try
         {
-            var credentials = clients.GetCredentials(aws.Profile);
+            var credentials = clients.GetCredentials(aws);
             if (credentials.IsFailure)
                 return Result<string, ErrorDetail>.Failure(credentials.Error);
 

@@ -109,6 +109,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <!-- メニューバー: アプリ全体に対する操作。一覧固有の操作は一覧ペイン側にもある。
@@ -124,6 +125,20 @@
                 </MenuFlyoutItem>
                 <MenuFlyoutSeparator />
                 <MenuFlyoutItem Text="終了" Click="OnExitRequested" />
+            </MenuBarItem>
+            <MenuBarItem Title="AWS認証">
+                <MenuFlyoutItem Text="AWSにログイン…" Command="{Binding Authentication.LoginCommand}">
+                    <MenuFlyoutItem.Icon>
+                        <FontIcon Glyph="&#xE72E;" />
+                    </MenuFlyoutItem.Icon>
+                </MenuFlyoutItem>
+                <MenuFlyoutItem Text="認証状態を再確認" Command="{Binding Authentication.RefreshCommand}">
+                    <MenuFlyoutItem.Icon>
+                        <FontIcon Glyph="&#xE72C;" />
+                    </MenuFlyoutItem.Icon>
+                </MenuFlyoutItem>
+                <MenuFlyoutSeparator />
+                <MenuFlyoutItem Text="ログインをキャンセル" Command="{Binding Authentication.LoginCancelCommand}" />
             </MenuBarItem>
             <MenuBarItem Title="ツール">
                 <MenuFlyoutItem Text="すべて再検索" Command="{Binding RefreshAllCommand}">
@@ -243,9 +258,61 @@
             </Border>
         </Grid>
 
+        <!-- 認証状態は 1 行に収め、確認時刻やエラーの詳細は状態を押して開く。 -->
+        <Border Grid.Row="2" Padding="10,3" Margin="12,8,12,0" Style="{StaticResource PaneStyle}"
+                DataContext="{Binding Authentication}">
+            <Grid ColumnSpacing="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="AWS認証" Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+                <Button Grid.Column="1" Content="{Binding StatusText}" FontSize="12" FontWeight="SemiBold"
+                        MinHeight="24" Padding="4,0" Background="Transparent" BorderThickness="0"
+                        ToolTipService.ToolTip="{Binding DetailText}"
+                        AutomationProperties.HelpText="認証の詳細を表示" AutomationProperties.LiveSetting="Polite">
+                    <Button.Flyout>
+                        <Flyout Placement="Top">
+                            <StackPanel x:Name="AuthenticationDetailsPanel" Width="340" Spacing="8">
+                                <TextBlock Text="AWS認証の詳細" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                                <TextBlock Text="{Binding TargetText}" Style="{StaticResource CaptionTextBlockStyle}"
+                                           TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding DetailText}" Style="{StaticResource CaptionTextBlockStyle}"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding ErrorText}" Style="{StaticResource CaptionTextBlockStyle}"
+                                           Foreground="{ThemeResource SystemFillColorCriticalBrush}" TextWrapping="Wrap"
+                                           Visibility="{Binding ErrorText, Converter={StaticResource NullToVis}}" />
+                                <Button Content="認証状態を再確認" Command="{Binding RefreshCommand}" />
+                            </StackPanel>
+                        </Flyout>
+                    </Button.Flyout>
+                </Button>
+                <TextBlock Grid.Column="2" Text="{Binding TargetText}" Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center"
+                           ToolTipService.ToolTip="{Binding TargetText}" TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="3" Text="エラー" Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource SystemFillColorCriticalBrush}" VerticalAlignment="Center"
+                           ToolTipService.ToolTip="{Binding ErrorText}" AutomationProperties.HelpText="{Binding ErrorText}"
+                           Visibility="{Binding ErrorText, Converter={StaticResource NullToVis}}" />
+                <ProgressRing Grid.Column="4" Width="16" Height="16" MinWidth="16" MinHeight="16" IsActive="{Binding IsBusy}"
+                              Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}" />
+                <Button Grid.Column="5" Content="ログイン…" Command="{Binding LoginCommand}"
+                        VerticalAlignment="Center" MinHeight="24" Padding="8,0" FontSize="12"
+                        Visibility="{Binding IsLoggingIn, Converter={StaticResource BoolToVis}, ConverterParameter=Invert}" />
+                <Button Grid.Column="5" Content="キャンセル" Command="{Binding LoginCancelCommand}"
+                        VerticalAlignment="Center" MinHeight="24" Padding="8,0" FontSize="12"
+                        Visibility="{Binding IsLoggingIn, Converter={StaticResource BoolToVis}}" />
+            </Grid>
+        </Border>
+
         <!-- ステータスバー: 最新の動作を 1 行で出し、そこから履歴とログファイルへ辿れる。
              一覧・詳細と同じカードの扱いにして、全体背景に埋もれないようにする -->
-        <Border Grid.Row="2" Padding="10,6" Margin="12" Style="{StaticResource PaneStyle}">
+        <Border Grid.Row="3" Padding="10,6" Margin="12,6,12,12" Style="{StaticResource PaneStyle}">
             <Grid ColumnSpacing="8">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />

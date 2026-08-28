@@ -2,6 +2,10 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text.Json;
 
+// aws login のプロセス契約テストにも、この既存のテスト用実行ファイルを使う。
+if (args.FirstOrDefault() == "login")
+    return await FakeAwsLogin.RunAsync(args);
+
 // session-manager-plugin.exe の代役。本物と同じ引数列を受け取り、実際にローカルポートを
 // listen する。AWS も SSM も要らないまま、SessionManagerPluginLauncher /
 // TunnelProcessHandle のプロセス契約 (引数・確立検知・終了検知・停止) を検証できる。

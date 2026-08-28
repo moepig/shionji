@@ -42,11 +42,25 @@ public sealed class AwsClientFactory(string? endpointOverride = null, string? pr
         return Result<AWSCredentials, ErrorDetail>.Success(credentials);
     }
 
+    public Result<AWSCredentials, ErrorDetail> GetCredentials(AwsContext aws)
+    {
+        // aws login --region で新規作成したプロファイルには region が保存されない。
+        // LoginAWSCredentials は生成時に region が必要なので、その前にメモリ上で補う。
+        if (_chain.TryGetProfile(aws.Profile.Value, out var profile)
+            && profile.Region is null && !string.IsNullOrEmpty(profile.Options.LoginSession))
+        {
+            profile.Region = RegionEndpoint.GetBySystemName(aws.Region.Value);
+            if (AWSCredentialsFactory.TryGetAWSCredentials(profile, _chain, out var credentials))
+                return Result<AWSCredentials, ErrorDetail>.Success(credentials);
+        }
+        return GetCredentials(aws.Profile);
+    }
+
     private Result<TClient, ErrorDetail> Create<TConfig, TClient>(
         AwsContext aws, TConfig config, Func<AWSCredentials, TConfig, TClient> create)
         where TConfig : ClientConfig
     {
-        return GetCredentials(aws.Profile).Map(credentials =>
+        return GetCredentials(aws).Map(credentials =>
         {
             if (endpointOverride is { Length: > 0 } url)
             {

@@ -14,6 +14,8 @@
     <PackageReference Include="AWSSDK.RDS" Version="4.0.104" />
     <PackageReference Include="AWSSDK.SSO" Version="4.0.100.7" />
     <PackageReference Include="AWSSDK.SSOOIDC" Version="4.0.100.7" />
+    <PackageReference Include="AWSSDK.Signin" Version="4.0.101.1" />
+    <PackageReference Include="AWSSDK.SecurityToken" Version="4.0.100.7" />
     <PackageReference Include="AWSSDK.SimpleSystemsManagement" Version="4.0.103.2" />
   </ItemGroup>
 
@@ -23,6 +25,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Shionji.IntegrationTests" />
+    <InternalsVisibleTo Include="Shionji.Infrastructure.Tests" />
   </ItemGroup>
 
 </Project>
