@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <Version>0.0.5</Version>
+    <Version>0.0.6</Version>
     <AssemblyName>Shionji</AssemblyName>
     <!-- Windows のタスクトレイ設定など、シェルに表示する製品名。 -->
     <AssemblyTitle>Shionji</AssemblyTitle>
