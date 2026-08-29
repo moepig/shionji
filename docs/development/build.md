@@ -36,7 +36,7 @@ dotnet build src/Shionji.App.WinUI/Shionji.App.WinUI.csproj
 出力された実行ファイルを起動する。
 
 ```bash
-"src/Shionji.App.WinUI/bin/x64/Debug/net10.0-windows10.0.19041.0/win-x64/Shionji.App.WinUI.exe" --demo
+"src/Shionji.App.WinUI/bin/x64/Debug/net10.0-windows10.0.19041.0/win-x64/Shionji.exe" --demo
 ```
 
 `--demo` を付けるとデモモードで起動する。AWS への通信と `session-manager-plugin` の起動をフェイクに差し替え、ファイルにも書き込まない。UI の全経路をアカウント無しで確認できる。
@@ -69,5 +69,5 @@ dotnet build src/Shionji.App.WinUI/Shionji.App.WinUI.csproj
 出力先のファイルがロックされていると `MSB3027` / `MSB3021` で失敗する。実行中のアプリ、Visual Studio のデバッグセッション、デモモードのプロセスが原因になる。プロセスを終了してからビルドし直す。
 
 ```bash
-powershell -Command "Get-Process Shionji.App.WinUI -ErrorAction SilentlyContinue | Stop-Process -Force"
+powershell -Command "Get-Process Shionji -ErrorAction SilentlyContinue | Stop-Process -Force"
 ```

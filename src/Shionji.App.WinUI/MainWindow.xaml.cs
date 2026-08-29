@@ -13,6 +13,9 @@ namespace Shionji.App.WinUI;
 
 public sealed partial class MainWindow : Window
 {
+    private const string TrayIconName = "Shionji.TrayIcon";
+    private const string DemoTrayIconName = "Shionji.TrayIcon.Demo";
+
     private readonly MainViewModel _viewModel;
     private readonly TunnelSupervisor _supervisor;
     private readonly AppSettingsStore _settings;
@@ -48,7 +51,7 @@ public sealed partial class MainWindow : Window
         _themeHost = services.GetRequiredService<ThemeHost>();
         _themeHost.Register(this);
 
-        SetupTrayIcon();
+        SetupTrayIcon(isDemoMode);
 
         _authenticationTimer = DispatcherQueue.CreateTimer();
         _authenticationTimer.Interval = TimeSpan.FromMinutes(1);
@@ -125,7 +128,7 @@ public sealed partial class MainWindow : Window
             sender.Hide();
     }
 
-    private void SetupTrayIcon()
+    private void SetupTrayIcon(bool isDemoMode)
     {
         var flyout = new MenuFlyout();
 
@@ -141,6 +144,10 @@ public sealed partial class MainWindow : Window
 
         _trayIcon = new TaskbarIcon
         {
+            // 未指定時は実行ファイルのパスごとに別の GUID が作られ、Windows の
+            // トレイ設定へビルド先・展開先の数だけ登録が残る。通常版とデモ版には
+            // それぞれ固定名から生成される安定した GUID を使う。
+            CustomName = isDemoMode ? DemoTrayIconName : TrayIconName,
             ToolTipText = "Shionji",
             ContextFlyout = flyout,
             NoLeftClickDelay = true,
