@@ -1,6 +1,6 @@
 # リリース
 
-本ドキュメントは、配布物の形態とバージョンを確定させて GitHub Release へ公開するまでを扱う。ビルドの前提は [ビルド](build.md)、テストの実行は [テスト](test.md) を参照。
+Windows ZIP の内容と、リリース PR をマージして公開する手順を説明する。ビルドの前提は [ビルド](build.md)、テストの実行方法は [テスト](test.md)を参照する。
 
 ## 配布形態
 
@@ -14,13 +14,15 @@
 | .NET ランタイム | 同梱しない。実行環境に .NET Desktop Runtime 10.0 が必要である |
 | `session-manager-plugin` | 同梱しない。実行環境で別途導入する |
 
-.NET ランタイムを同梱する場合は publish に `--self-contained` を加える。配布物は 3 割ほど大きくなる。
+.NET ランタイムを同梱する場合は publish に `--self-contained` を加える。同梱すると配布サイズは増えるが、現在のバージョンでの増加量は未検証である。[.NET の配布方式](https://learn.microsoft.com/en-us/dotnet/core/deploying/)を参照する。
 
 ## リリースワークフロー
 
-[Release Please](../../.github/workflows/release-please.yml)が release-please のリリース PR を管理する。マージ後に [配布処理](../../.github/workflows/distribute.yml)を呼び、指定されたマージ SHA を Windows 上でテスト・publish する。
+[Release Please](../../.github/workflows/release-please.yml)は main への push と手動実行で起動する。未公開の fix・feat などを検出するとリリース PR を作成・更新する。定期実行は行わない。GITHUB_TOKEN による依存 PR の自動マージ後は、main を選んで手動実行する。PR 作成時は tag を空欄にする。
 
-version.txt、WinUI の csproj の Version、タグを照合する。不一致なら配布を停止する。ZIP と checksums.txt は既存 draft Release に添付し、ファイルと SHA-256 の検証後に公開する。本文の変更履歴は release-please の生成内容を維持する。
+リリース PR を main へマージすると、その push で自動起動し、タグと draft Release を作成して[配布処理](../../.github/workflows/distribute.yml)を呼ぶ。Windows 上でタグとマージ SHA、version.txt と csproj の Version を照合する。不一致なら停止する。
+
+テストと publish の成功後、ZIP を添付する。アップロードが成功すると draft を解除する。Release の変更履歴は release-please の生成内容を維持する。PR 作成と公開を分けた流れは [依存更新とリリース](../dependency-release.md#公開)の図を参照する。
 
 ## 手順
 
@@ -28,10 +30,10 @@ version.txt、WinUI の csproj の Version、タグを照合する。不一致�
 2. 実 AWS で [スモークテスト](test.md#実-aws-でのスモークテスト)を行う。
 3. リリース PR のバージョンと変更履歴を確認する。GITHUB_TOKEN が作成・更新した PR の CI が承認待ちなら、管理者が開始を承認する。
 4. CI のテストと配布用ビルド、必須チェックの成功を確認して PR をマージする。
-5. GitHub Release に ZIP と checksums.txt が添付され、draft が解除されたことを確認する。
+5. GitHub Release に ZIP が添付され、draft が解除されたことを確認する。
 6. ZIP をリポジトリ外へ展開し、Shionji.exe が起動することを確認する。同梱漏れを周囲のビルド出力で補わないよう、別のフォルダで確認する。
 
-停止と手動再実行は [依存更新とリリース](../dependency-release.md)の手順に従う。
+停止と再実行は [依存更新とリリース](../dependency-release.md#失敗時の再実行)に従う。既存 draft の再配布時だけ tag を指定する。
 
 ## コード署名
 

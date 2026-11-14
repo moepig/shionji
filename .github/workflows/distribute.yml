@@ -46,7 +46,7 @@ jobs:
           if ($actual.Trim() -ne $expected -or (Get-Content version.txt).Trim() -ne $expected) { throw 'Product version and release tag differ' }
       - run: dotnet test Shionji.slnx --configuration Release
       - run: dotnet publish src/Shionji.App.WinUI/Shionji.App.WinUI.csproj -c Release -r win-x64 -o publish
-      - name: Attach ZIP and checksums
+      - name: Attach ZIP
         shell: pwsh
         env:
           RELEASE_TAG: ${{ inputs.tag }}
@@ -56,11 +56,9 @@ jobs:
           $version = $env:RELEASE_TAG -replace '^v', ''
           $name = "shionji-$version-win-x64.zip"
           Compress-Archive -Path publish/* -DestinationPath $name
-          $hash = (Get-FileHash $name -Algorithm SHA256).Hash.ToLowerInvariant()
-          [IO.File]::WriteAllText("$pwd/checksums.txt", "$hash  $name`n")
           $isDraft = gh release view $env:RELEASE_TAG --json isDraft --jq .isDraft
           if ($LASTEXITCODE -ne 0 -or $isDraft -ne 'true') { throw 'Expected draft release not found' }
-          gh release upload $env:RELEASE_TAG $name checksums.txt --clobber
+          gh release upload $env:RELEASE_TAG $name --clobber
           if ($LASTEXITCODE -ne 0) { throw 'Asset upload failed' }
       - name: Publish the draft release
         shell: bash
