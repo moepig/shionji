@@ -2,15 +2,13 @@ name: Distribute release
 on:
   workflow_call:
     inputs:
-      release-id:
-        required: true
-        type: string
       tag:
         required: true
         type: string
       sha:
-        required: true
+        required: false
         type: string
+        default: ""
 permissions:
   contents: read
 jobs:
@@ -19,22 +17,22 @@ jobs:
     timeout-minutes: 45
     permissions:
       contents: write
-      issues: read
-      pull-requests: read
-      actions: read
     steps:
-      - uses: moepig/flexi/.github/actions/dependency-release@0de782a2a86360049265211687891636fb9c80a5
-        with:
-          token: ${{ github.token }}
-          mode: verify
-          release-id: ${{ inputs.release-id }}
-          tag: ${{ inputs.tag }}
-          sha: ${{ inputs.sha }}
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.sha }}
+          ref: ${{ inputs.sha || inputs.tag }}
           fetch-depth: 0
           persist-credentials: false
+      - name: Verify tag and draft release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          EXPECTED_SHA: ${{ inputs.sha }}
+        run: |-
+          test "$(git rev-parse HEAD)" = "$(git rev-parse --verify "refs/tags/$RELEASE_TAG^{commit}")"
+          if [ -n "$EXPECTED_SHA" ]; then test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"; fi
+          test "$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft)" = true
       - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5.4.0
         with:
           global-json-file: global.json
@@ -44,22 +42,14 @@ jobs:
           RELEASE_TAG: ${{ inputs.tag }}
         run: |-
           $expected = $env:RELEASE_TAG -replace '^v', ''
-          $version = ([xml](Get-Content src/Shionji.App.WinUI/Shionji.App.WinUI.csproj)).Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
-          if ($version.Trim() -ne $expected -or (Get-Content version.txt).Trim() -ne $expected) { throw 'Product version and release tag differ' }
+          $actual = ([xml](Get-Content src/Shionji.App.WinUI/Shionji.App.WinUI.csproj)).Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
+          if ($actual.Trim() -ne $expected -or (Get-Content version.txt).Trim() -ne $expected) { throw 'Product version and release tag differ' }
       - run: dotnet test Shionji.slnx --configuration Release
       - run: dotnet publish src/Shionji.App.WinUI/Shionji.App.WinUI.csproj -c Release -r win-x64 -o publish
-      - uses: moepig/flexi/.github/actions/dependency-release@0de782a2a86360049265211687891636fb9c80a5
-        with:
-          token: ${{ github.token }}
-          mode: verify
-          release-id: ${{ inputs.release-id }}
-          tag: ${{ inputs.tag }}
-          sha: ${{ inputs.sha }}
-      - name: Attach ZIP and checksums to the draft release
+      - name: Attach ZIP and checksums
         shell: pwsh
         env:
           RELEASE_TAG: ${{ inputs.tag }}
-          RELEASE_ID: ${{ inputs.release-id }}
           GH_TOKEN: ${{ github.token }}
         run: |-
           $ErrorActionPreference = 'Stop'
@@ -68,7 +58,15 @@ jobs:
           Compress-Archive -Path publish/* -DestinationPath $name
           $hash = (Get-FileHash $name -Algorithm SHA256).Hash.ToLowerInvariant()
           [IO.File]::WriteAllText("$pwd/checksums.txt", "$hash  $name`n")
-          $release = gh api "repos/$env:GITHUB_REPOSITORY/releases/$env:RELEASE_ID" | ConvertFrom-Json
-          if ($LASTEXITCODE -ne 0 -or -not $release.draft -or $release.tag_name -ne $env:RELEASE_TAG) { throw 'Expected draft release not found' }
-          gh release upload $env:RELEASE_TAG $name checksums.txt --clobber --repo $env:GITHUB_REPOSITORY
+          $isDraft = gh release view $env:RELEASE_TAG --json isDraft --jq .isDraft
+          if ($LASTEXITCODE -ne 0 -or $isDraft -ne 'true') { throw 'Expected draft release not found' }
+          gh release upload $env:RELEASE_TAG $name checksums.txt --clobber
           if ($LASTEXITCODE -ne 0) { throw 'Asset upload failed' }
+      - name: Publish the draft release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |-
+          test "$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft)" = true
+          gh release edit "$RELEASE_TAG" --draft=false

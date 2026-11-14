@@ -18,7 +18,7 @@
 
 ## リリースワークフロー
 
-[リリース制御](../../.github/workflows/release-control.yml)が release-please のリリース PR を管理する。マージ後に [配布処理](../../.github/workflows/distribute.yml)を呼び、指定されたマージ SHA を Windows 上でテスト・publish する。
+[Release Please](../../.github/workflows/release-please.yml)が release-please のリリース PR を管理する。マージ後に [配布処理](../../.github/workflows/distribute.yml)を呼び、指定されたマージ SHA を Windows 上でテスト・publish する。
 
 version.txt、WinUI の csproj の Version、タグを照合する。不一致なら配布を停止する。ZIP と checksums.txt は既存 draft Release に添付し、ファイルと SHA-256 の検証後に公開する。本文の変更履歴は release-please の生成内容を維持する。
 
@@ -31,7 +31,7 @@ version.txt、WinUI の csproj の Version、タグを照合する。不一致�
 5. GitHub Release に ZIP と checksums.txt が添付され、draft が解除されたことを確認する。
 6. ZIP をリポジトリ外へ展開し、Shionji.exe が起動することを確認する。同梱漏れを周囲のビルド出力で補わないよう、別のフォルダで確認する。
 
-保留と復旧は [依存更新とリリース](../dependency-release.md)の運用手順に従う。
+停止と手動再実行は [依存更新とリリース](../dependency-release.md)の手順に従う。
 
 ## コード署名
 
