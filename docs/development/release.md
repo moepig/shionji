@@ -18,59 +18,21 @@
 
 ## リリースワークフロー
 
-配布物の生成と GitHub Release への公開は GitHub Actions で行う。ワークフローの構成を、以下にまとめる。
+[リリース制御](../../.github/workflows/release-control.yml)が release-please のリリース PR を管理する。マージ後に [配布処理](../../.github/workflows/distribute.yml)を呼び、指定されたマージ SHA を Windows 上でテスト・publish する。
 
-| 要素 | 内容 |
-| --- | --- |
-| 契機 | `v` で始まるタグの push |
-| 実行環境 | `windows-2025`。SDK の版は `global.json` に従う |
-| 処理 | バージョンの照合、`dotnet test` による全テスト、`dotnet publish`、zip 圧縮、Release の作成 |
-| 成果物 | `shionji-<バージョン>-win-x64.zip` を Release に添付する。あわせて 14 日間 Actions のアーティファクトにも残す |
-
-バージョンの照合は、タグから `v` を除いた文字列と `src/Shionji.App.WinUI/Shionji.App.WinUI.csproj` の `Version` を突き合わせる。食い違う場合と `Version` が無い場合はここで停止し、テスト以降を実行しない。
-
-バージョンにハイフンを含む場合 (`1.2.0-rc.1` など) はプレリリースとして作成し、latest として扱わない。
-
-Release の本文はタグ間のコミットから自動生成する。
-
-ジョブの定義は、[`.github/workflows/release.yml`](../../.github/workflows/release.yml) を参照。
+version.txt、WinUI の csproj の Version、タグを照合する。不一致なら配布を停止する。ZIP と checksums.txt は既存 draft Release に添付し、ファイルと SHA-256 の検証後に公開する。本文の変更履歴は release-please の生成内容を維持する。
 
 ## 手順
 
-1. 作業ツリーが `main` の最新で、未コミットの変更が無いことを確認する。
+1. デモモードで UI の主要経路を確認する。[ビルド](build.md#アプリの実行)の手順を使う。
+2. 実 AWS で [スモークテスト](test.md#実-aws-でのスモークテスト)を行う。
+3. リリース PR のバージョンと変更履歴を確認する。GITHUB_TOKEN が作成・更新した PR の CI が承認待ちなら、管理者が開始を承認する。
+4. CI のテストと配布用ビルド、必須チェックの成功を確認して PR をマージする。
+5. GitHub Release に ZIP と checksums.txt が添付され、draft が解除されたことを確認する。
+6. ZIP をリポジトリ外へ展開し、Shionji.exe が起動することを確認する。同梱漏れを周囲のビルド出力で補わないよう、別のフォルダで確認する。
 
-2. デモモードで UI の主要経路を確認する。手順は [ビルド](build.md#アプリの実行) を参照。
+保留と復旧は [依存更新とリリース](../dependency-release.md)の運用手順に従う。
 
-3. 実 AWS でのスモークテストを行う。項目は [テスト](test.md#実-aws-でのスモークテスト) を参照。
+## コード署名
 
-4. バージョンを決めて `src/Shionji.App.WinUI/Shionji.App.WinUI.csproj` に記録し、コミットする。
-
-   ```xml
-   <Version>1.2.0</Version>
-   ```
-
-   この値は実行ファイルのバージョン情報になり、起動時のログ 1 行目にも出る。版を上げずにリリースすると、報告されたログからどのビルドかを判別できなくなる。
-
-5. バージョンのコミットにタグを打ち、push する。
-
-   ```bash
-   git tag v1.2.0
-   ```
-
-   ```bash
-   git push origin main v1.2.0
-   ```
-
-6. ワークフローの完了と、Release に zip が添付されていることを確認する。
-
-7. 添付された zip を展開し、`Shionji.exe` がリポジトリの外から起動することを確認する。ビルド出力のフォルダでは同梱漏れがあっても周囲のファイルで補われるため、別のフォルダへ展開してから確認する。
-
-## 未整備の項目
-
-以下は現時点で仕組みが無く、リリースのたびに手で行うか、行っていない。
-
-| 項目 | 現状 |
-| --- | --- |
-| 継続的インテグレーション | ビルドとテストを回すのはリリースワークフローのみ。PR と push では何も実行しない |
-| コード署名 | 実行ファイルに署名していない。実行環境で SmartScreen の警告が出る |
-| 変更履歴 | `CHANGELOG` を持っていない。Release の本文はコミットログから自動生成している |
+実行ファイルのコード署名は行わない。実行環境によっては SmartScreen の警告を表示する。
