@@ -18,22 +18,19 @@ Windows ZIP の内容と、リリース PR をマージして公開する手順�
 
 ## リリースワークフロー
 
-[Release Please](../../.github/workflows/release-please.yml)は main への push と手動実行で起動する。未公開の fix・feat などを検出するとリリース PR を作成・更新する。定期実行は行わない。GITHUB_TOKEN による依存 PR の自動マージ後は、main を選んで手動実行する。PR 作成時は tag を空欄にする。
+専用 Automation App が main の push からリリース PR を作成・更新する。人が CI、version.txt、csproj の Version、変更履歴を確認して手動マージする。マージ後の push でタグと draft を作成する。
 
-リリース PR を main へマージすると、その push で自動起動し、タグと draft Release を作成して[配布処理](../../.github/workflows/distribute.yml)を呼ぶ。Windows 上でタグとマージ SHA、version.txt と csproj の Version を照合する。不一致なら停止する。
-
-テストと publish の成功後、ZIP を添付する。アップロードが成功すると draft を解除する。Release の変更履歴は release-please の生成内容を維持する。PR 作成と公開を分けた流れは [依存更新とリリース](../dependency-release.md#公開)の図を参照する。
+[リリースワークフロー](../../.github/workflows/release-please.yml)の Windows ビルドは読み取り権限だけを使う。テストと publish の成功後に ZIP と checksums.txt を artifact に登録する。公開ジョブは別の runner で記録とハッシュを検査し、配布物を添付して公開する。実行ファイルを公開ジョブで実行しない。
 
 ## 手順
 
-1. デモモードで UI の主要経路を確認する。[ビルド](build.md#アプリの実行)の手順を使う。
+1. [デモモード](build.md#アプリの実行)で主要な UI 経路を確認する。
 2. 実 AWS で [スモークテスト](test.md#実-aws-でのスモークテスト)を行う。
-3. リリース PR のバージョンと変更履歴を確認する。GITHUB_TOKEN が作成・更新した PR の CI が承認待ちなら、管理者が開始を承認する。
-4. CI のテストと配布用ビルド、必須チェックの成功を確認して PR をマージする。
-5. GitHub Release に ZIP が添付され、draft が解除されたことを確認する。
-6. ZIP をリポジトリ外へ展開し、Shionji.exe が起動することを確認する。同梱漏れを周囲のビルド出力で補わないよう、別のフォルダで確認する。
+3. リリース PR のバージョン、変更履歴、必須 CI を確認して承認し、マージする。
+4. ZIP、checksums.txt、release-manifest.json の添付と公開を確認する。
+5. ZIP をビルド出力と別のフォルダへ展開し、Shionji.exe の起動を確認する。
 
-停止と再実行は [依存更新とリリース](../dependency-release.md#失敗時の再実行)に従う。既存 draft の再配布時だけ tag を指定する。
+停止と復旧は [依存更新とリリース](../dependency-release.md#失敗時の再実行)に従う。復旧入力は既存の release_id だけとし、配布物の不一致を上書きで回避しない。
 
 ## コード署名
 

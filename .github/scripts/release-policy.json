@@ -1,0 +1,9 @@
+{
+  "project": "shionji",
+  "assets": [
+    "shionji-{version}-win-x64.zip",
+    "checksums.txt"
+  ],
+  "binaries": [],
+  "containers": []
+}
