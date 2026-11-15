@@ -1,0 +1,39 @@
+name: CI
+on:
+  push:
+    branches:
+      - main
+  pull_request: {}
+permissions:
+  contents: read
+jobs:
+  windows:
+    name: windows
+    runs-on: windows-2025
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5.4.0
+        with:
+          global-json-file: global.json
+      - run: dotnet test Shionji.slnx --configuration Release
+      - run: dotnet publish src/Shionji.App.WinUI/Shionji.App.WinUI.csproj -c Release -r win-x64 -o publish
+      - run: Compress-Archive -Path publish/* -DestinationPath shionji-win-x64.zip
+  ci:
+    name: ci
+    runs-on: ubuntu-latest
+    needs:
+      - windows
+    if: ${{ always() }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Require every CI job to succeed
+        if: ${{ needs['windows'].result != 'success' }}
+        run: exit 1
+concurrency:
+  group: ${{ format('ci-{0}', github.ref) }}
+  cancel-in-progress: true

@@ -1,6 +1,6 @@
 # リリース
 
-本ドキュメントは、配布物の形態とバージョンを確定させて GitHub Release へ公開するまでを扱う。ビルドの前提は [ビルド](build.md)、テストの実行は [テスト](test.md) を参照。
+Windows ZIP の内容と、リリース PR をマージして公開する手順を説明する。ビルドの前提は [ビルド](build.md)、テストの実行方法は [テスト](test.md)を参照する。
 
 ## 配布形態
 
@@ -14,63 +14,21 @@
 | .NET ランタイム | 同梱しない。実行環境に .NET Desktop Runtime 10.0 が必要である |
 | `session-manager-plugin` | 同梱しない。実行環境で別途導入する |
 
-.NET ランタイムを同梱する場合は publish に `--self-contained` を加える。配布物は 3 割ほど大きくなる。
+.NET ランタイムを同梱する場合は publish に `--self-contained` を加える。同梱すると配布サイズは増えるが、現在のバージョンでの増加量は未検証である。[.NET の配布方式](https://learn.microsoft.com/en-us/dotnet/core/deploying/)を参照する。
 
 ## リリースワークフロー
 
-配布物の生成と GitHub Release への公開は GitHub Actions で行う。ワークフローの構成を、以下にまとめる。
+専用 Automation App が main の push からリリース PR を作成・更新する。人が CI、version.txt、csproj の Version、変更履歴を確認して手動マージする。マージ後の push でタグと draft を作成する。
 
-| 要素 | 内容 |
-| --- | --- |
-| 契機 | `v` で始まるタグの push |
-| 実行環境 | `windows-2025`。SDK の版は `global.json` に従う |
-| 処理 | バージョンの照合、`dotnet test` による全テスト、`dotnet publish`、zip 圧縮、Release の作成 |
-| 成果物 | `shionji-<バージョン>-win-x64.zip` を Release に添付する。あわせて 14 日間 Actions のアーティファクトにも残す |
-
-バージョンの照合は、タグから `v` を除いた文字列と `src/Shionji.App.WinUI/Shionji.App.WinUI.csproj` の `Version` を突き合わせる。食い違う場合と `Version` が無い場合はここで停止し、テスト以降を実行しない。
-
-バージョンにハイフンを含む場合 (`1.2.0-rc.1` など) はプレリリースとして作成し、latest として扱わない。
-
-Release の本文はタグ間のコミットから自動生成する。
-
-ジョブの定義は、[`.github/workflows/release.yml`](../../.github/workflows/release.yml) を参照。
+リリースは既存 Action と標準コマンドで行う。公開後は immutable releases で保護する。一部配布後の失敗は管理者が調査し、修正版を別バージョンで公開する。ZIP は actions/attest で provenance を作成し、公開ジョブが gh attestation verify で検証してから添付する。詳細は [依存更新とリリース](../dependency-release.md)に従う。
 
 ## 手順
 
-1. 作業ツリーが `main` の最新で、未コミットの変更が無いことを確認する。
+1. リリース PR のバージョンと CI を確認する。
+2. 人がレビューしてマージする。
+3. ZIP の provenance 検証と添付・公開の成功を確認する。
+4. 失敗時は [再実行の条件](../dependency-release.md#失敗時の再実行)を確認する。
 
-2. デモモードで UI の主要経路を確認する。手順は [ビルド](build.md#アプリの実行) を参照。
+## コード署名
 
-3. 実 AWS でのスモークテストを行う。項目は [テスト](test.md#実-aws-でのスモークテスト) を参照。
-
-4. バージョンを決めて `src/Shionji.App.WinUI/Shionji.App.WinUI.csproj` に記録し、コミットする。
-
-   ```xml
-   <Version>1.2.0</Version>
-   ```
-
-   この値は実行ファイルのバージョン情報になり、起動時のログ 1 行目にも出る。版を上げずにリリースすると、報告されたログからどのビルドかを判別できなくなる。
-
-5. バージョンのコミットにタグを打ち、push する。
-
-   ```bash
-   git tag v1.2.0
-   ```
-
-   ```bash
-   git push origin main v1.2.0
-   ```
-
-6. ワークフローの完了と、Release に zip が添付されていることを確認する。
-
-7. 添付された zip を展開し、`Shionji.exe` がリポジトリの外から起動することを確認する。ビルド出力のフォルダでは同梱漏れがあっても周囲のファイルで補われるため、別のフォルダへ展開してから確認する。
-
-## 未整備の項目
-
-以下は現時点で仕組みが無く、リリースのたびに手で行うか、行っていない。
-
-| 項目 | 現状 |
-| --- | --- |
-| 継続的インテグレーション | ビルドとテストを回すのはリリースワークフローのみ。PR と push では何も実行しない |
-| コード署名 | 実行ファイルに署名していない。実行環境で SmartScreen の警告が出る |
-| 変更履歴 | `CHANGELOG` を持っていない。Release の本文はコミットログから自動生成している |
+実行ファイルのコード署名は行わない。実行環境によっては SmartScreen の警告を表示する。

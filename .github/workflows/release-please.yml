@@ -1,0 +1,95 @@
+name: Release Please
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+permissions:
+  contents: read
+concurrency:
+  group: release
+  cancel-in-progress: false
+jobs:
+  release:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    environment: automation
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      created: ${{ steps.release.outputs.release_created }}
+      tag: ${{ steps.release.outputs.tag_name }}
+      sha: ${{ steps.release.outputs.sha }}
+    steps:
+      - id: token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510
+        with:
+          app-id: ${{ vars.AUTOMATION_APP_ID }}
+          private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+          permission-pull-requests: write
+          skip-token-revoke: false
+      - id: release
+        uses: googleapis/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071
+        with:
+          token: ${{ steps.token.outputs.token }}
+          target-branch: main
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+  build:
+    needs: release
+    if: ${{ needs.release.outputs.created == 'true' }}
+    runs-on: windows-2025
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    outputs:
+      artifact_id: ${{ steps.upload.outputs.artifact-id }}
+    steps:
+      - name: Require release from this commit
+        if: ${{ needs.release.outputs.sha != github.sha }}
+        run: exit 1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.release.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1
+        with:
+          global-json-file: global.json
+      - run: dotnet test Shionji.slnx --configuration Release
+      - run: dotnet publish src/Shionji.App.WinUI/Shionji.App.WinUI.csproj -c Release -r win-x64 -o publish
+      - run: Compress-Archive -Path publish/* -DestinationPath shionji-win-x64.zip
+      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
+        with:
+          subject-path: shionji-win-x64.zip
+          create-storage-record: false
+      - id: upload
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: windows-release
+          path: shionji-win-x64.zip
+          if-no-files-found: error
+  publish:
+    needs: [release, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      attestations: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RELEASE_TAG: ${{ needs.release.outputs.tag }}
+      SOURCE_SHA: ${{ github.sha }}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          artifact-ids: ${{ needs.build.outputs.artifact_id }}
+          merge-multiple: true
+      - run: gh attestation verify shionji-win-x64.zip --repo "$GH_REPO" --signer-workflow "$GH_REPO/.github/workflows/release-please.yml" --source-ref refs/heads/main --source-digest "$SOURCE_SHA" --deny-self-hosted-runners
+      - run: gh release upload "$RELEASE_TAG" shionji-win-x64.zip
+      - run: gh release edit "$RELEASE_TAG" --draft=false
