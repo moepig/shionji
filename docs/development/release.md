@@ -20,7 +20,7 @@ Windows ZIP の内容と、リリース PR をマージして公開する手順�
 
 専用 Automation App が main の push からリリース PR を作成・更新する。人が CI、version.txt、csproj の Version、変更履歴を確認して手動マージする。マージ後の push でタグと draft を作成する。
 
-リリースは既存 Action と標準コマンドで行う。公開後は immutable releases で保護する。一部配布後の失敗は管理者が調査し、修正版を別バージョンで公開する。詳細は依存更新とリリースの手順に従う。
+リリースは既存 Action と標準コマンドで行う。公開後は immutable releases で保護する。一部配布後の失敗は管理者が調査し、修正版を別バージョンで公開する。ZIP は actions/attest で provenance を作成し、公開ジョブが gh attestation verify で検証してから添付する。詳細は [依存更新とリリース](../dependency-release.md)に従う。
 
 ## 手順
 

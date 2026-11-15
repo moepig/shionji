@@ -1,5 +1,11 @@
 # 依存更新とリリース
 
+Windows x64 の WinUI アプリケーションである。shionji-win-x64.zip に publish 出力を格納する。Windows App SDK は同梱し、.NET Desktop Runtime 10.0 と Session Manager plugin は利用環境で導入する。
+
+## CI と配布の確認
+
+Windows runner でソリューションのテスト、win-x64 の publish、ZIP 作成を行う。公開時は同じ ZIP の provenance を検証する。 詳細は [配布内容と手順](development/release.md)を参照する。
+
 ## 導入条件
 
 専用 GitHub App、main 限定の automation Environment、必須 ci、レビュー、CODEOWNERS、immutable releases を設定してから導入する。実イベントの受入が済むまで DEPENDABOT_AUTO_MERGE は false とする。
@@ -16,7 +22,7 @@ main の push で Release Please がリリース PR を作成・更新する。�
 
 dotnet test、dotnet publish、Compress-Archive で Windows ZIP を作る。actions/attest で provenance を作成し、別の公開ジョブで gh attestation verify を実行する。検証後に gh release upload と gh release edit で公開する。非公開リポジトリには artifact attestations を利用できるプランが必要である。
 
-GitHub の immutable releases で公開後の添付とタグを保護する。Latest は標準動作に従い、GHCR latest の自動更新は行わない。利用者はバージョンまたは digest を指定する。
+GitHub の immutable releases で公開後の添付とタグを保護する。Latest は GitHub の標準動作に従う。
 
 ## 失敗時の再実行
 
@@ -26,4 +32,4 @@ GitHub の immutable releases で公開後の添付とタグを保護する。La
 
 有効化変数を false にし、ワークフローを無効化する。実行中・待機中の実行をキャンセルし、終了を確認してから各 PR の auto-merge を解除する。最後に実行と予約を再確認する。公開停止中はリリース PR をマージしない。
 
-[管理リポジトリの設計](https://github.com/moepig/github/blob/automation/dependency-release/docs/dependency-release-design.md)と[運用手順](https://github.com/moepig/github/blob/automation/dependency-release/docs/operations/dependency-release.md)に従う。
+管理者による App・保護設定の操作は、[GitHub 設定の管理](https://github.com/moepig/github/blob/automation/dependency-release/docs/management.md)を参照する。
