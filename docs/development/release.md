@@ -20,17 +20,14 @@ Windows ZIP の内容と、リリース PR をマージして公開する手順�
 
 専用 Automation App が main の push からリリース PR を作成・更新する。人が CI、version.txt、csproj の Version、変更履歴を確認して手動マージする。マージ後の push でタグと draft を作成する。
 
-[リリースワークフロー](../../.github/workflows/release-please.yml)の Windows ビルドは読み取り権限だけを使う。テストと publish の成功後に ZIP と checksums.txt を artifact に登録する。公開ジョブは別の runner で記録とハッシュを検査し、配布物を添付して公開する。実行ファイルを公開ジョブで実行しない。
+リリースは既存 Action と標準コマンドで行う。公開後は immutable releases で保護する。一部配布後の失敗は管理者が調査し、修正版を別バージョンで公開する。詳細は依存更新とリリースの手順に従う。
 
 ## 手順
 
-1. [デモモード](build.md#アプリの実行)で主要な UI 経路を確認する。
-2. 実 AWS で [スモークテスト](test.md#実-aws-でのスモークテスト)を行う。
-3. リリース PR のバージョン、変更履歴、必須 CI を確認して承認し、マージする。
-4. ZIP、checksums.txt、release-manifest.json の添付と公開を確認する。
-5. ZIP をビルド出力と別のフォルダへ展開し、Shionji.exe の起動を確認する。
-
-停止と復旧は [依存更新とリリース](../dependency-release.md#失敗時の再実行)に従う。復旧入力は既存の release_id だけとし、配布物の不一致を上書きで回避しない。
+1. リリース PR のバージョンと CI を確認する。
+2. 人がレビューしてマージする。
+3. ZIP の provenance 検証と添付・公開の成功を確認する。
+4. 失敗時は [再実行の条件](../dependency-release.md#失敗時の再実行)を確認する。
 
 ## コード署名
 
